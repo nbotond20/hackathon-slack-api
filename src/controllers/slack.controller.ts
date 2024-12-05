@@ -33,6 +33,8 @@ const SlackController = {
   },
   events: async (req: Request, res: Response, _next: NextFunction) => {
     const challenge = req.body.challenge
+    console.log(req.body)
+    console.log(req.query)
     return res.send(challenge).status(200)
   },
   commands: async (_req: Request, res: Response, _next: NextFunction) => {
