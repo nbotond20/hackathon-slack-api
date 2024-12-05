@@ -1,0 +1,103 @@
+name: K8s CD
+
+on:
+  workflow_call:
+    inputs:
+      il-env:
+        description: 'IL environment name'
+        type: string
+        required: true
+      short-env:
+        description: 'Short environment name'
+        type: string
+        required: true
+      cluster-name:
+        description: 'Cluster name'
+        type: string
+        required: true
+
+env:
+  DNS_SUFFIX: infinicloud.net
+  SERVICE_NAME: service-slack-bot-api
+  MIN_REPLICA_COUNT: 2
+  CPU: 256m
+  CPU_MAX: 512m
+  MEMORY: 128Mi
+  MEMORY_MAX: 256Mi
+  CLIENT_ID: ILG2_KUBERNETES_IL_K8S_PLATFORM_SLACK_BOT_CLIENTID
+  CLIENT_SECRET: ILG2_KUBERNETES_IL_K8S_PLATFORM_SLACK_BOT_SECRET
+  SUBSCRIPTION_ID: IL_DIGITAL_PLATFORMS_GEN2_SUBSCRIPTION_ID
+  TENANT_ID: IL_DIGITAL_PLATFORMS_TENANT_ID
+  NAMESPACE: slack-bot
+  DOCKER_REGISTRY: ilwebshops.azurecr.io
+  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    environment:
+      name: ${{ inputs.il-env }}
+
+    steps:
+      - name: Deploy info
+        run: |
+          echo Deploying to ${{ inputs.il-env }}
+          echo Docker tag: ${{ env.IMAGE_TAG }} image name: ${{ env.IMAGE_NAME }} service name: ${{ env.SERVICE_NAME }}
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: 'Az CLI Login for new Kubernetes cluster'
+        uses: azure/login@v1
+        with:
+          creds: '{"clientId":"${{ secrets[env.CLIENT_ID] }}","clientSecret":"${{ secrets[env.CLIENT_SECRET] }}","subscriptionId":"${{ secrets[env.SUBSCRIPTION_ID] }}","tenantId":"${{ secrets[env.TENANT_ID] }}"}'
+
+      - name: Setup kubelogin
+        uses: azure/use-kubelogin@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          kubelogin-version: 'latest'
+
+      - name: Set AKS context
+        id: set-context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ inputs.cluster-name }}
+          cluster-name: ${{ inputs.cluster-name }}
+          admin: 'false'
+          use-kubelogin: 'true'
+
+      - name: Replace secrets
+        uses: bluwy/substitute-string-action@v1
+        with:
+          _input-file: '.helm/templates/env/secrets.yaml'
+          _output-file: '.helm/templates/env/secrets.yaml'
+          _format-key: '${key}'
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
+          slack-signing-secret: ${{ secrets.SLACK_SIGNING_SECRET }}
+
+      - name: Setup helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy on k8s (helm upgrade)
+        run: "helm upgrade \
+          --set-string nameOverride=${{ env.SERVICE_NAME }},\
+          fullnameOverride=${{ env.SERVICE_NAME }},\
+          image.tag=${{ env.IMAGE_TAG }},\
+          image.repository=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }},\
+          environment.name=${{ inputs.il-env }},\
+          environment.fqdn=${{ env.SERVICE_NAME }}.${{ inputs.short-env }}.${{ env.DNS_SUFFIX }},\
+          environment.ilEnvironmentName=${{ inputs.il-env }},\
+          autoscaling.minReplicas=${{ env.MIN_REPLICA_COUNT }},\
+          resources.limits.cpu=${{ env.CPU_MAX }},\
+          resources.limits.memory=${{ env.MEMORY_MAX }},\
+          resources.requests.cpu=${{ env.CPU }},\
+          resources.requests.memory=${{ env.MEMORY }} \
+          ${{ env.SERVICE_NAME }} .helm -i \
+          --namespace ${{ env.NAMESPACE }} --wait"

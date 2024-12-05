@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include ".helm.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include ".helm.name" . }}
+    helm.sh/chart: {{ include ".helm.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  gateways:
+  - istio-system/ingress
+  hosts:
+  - "{{ include ".helm.fullname" . }}.{{ .Release.Namespace }}.{{ .Values.virtualService.clusterSubdomain }}"
+  - {{ .Values.virtualService.externalHostname }}
+  http:
+  - route:
+    - destination:
+        host: "{{ include ".helm.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"

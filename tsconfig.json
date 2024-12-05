@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./",
+    "outDir": "./dist",
+    "module": "commonjs",
+    "target": "ESNext",
+    "skipLibCheck": true,
+    "alwaysStrict": true,
+    "strict": true,
+    "preserveConstEnums": true,
+    "moduleResolution": "node",
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "typeRoots": ["types"],
+    "resolveJsonModule": true,
+    "lib": ["es2015"],
+    "paths": {
+      "@utils/*": ["src/utils/*"],
+      "@middlewares/*": ["./src/middlewares/*"],
+      "@controllers/*": ["./src/controllers/*"],
+      "@routes/*": ["./src/routes/*"],
+      "@domains/*": ["./src/domains/*"],
+      "@stores/*": ["./src/stores/*"],
+      "@db": ["src/lib/db.ts"],
+      "@models": ["./src/models/index.ts"],
+      "@lib/*": ["./src/lib/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}
