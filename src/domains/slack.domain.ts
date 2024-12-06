@@ -96,6 +96,7 @@ const slackDomain = {
   },
 
   appHomeOpened: async (event: any) => {
+    console.log(JSON.stringify(event))
     await slackApi.views.publish({
       user_id: event.user,
       view: {
