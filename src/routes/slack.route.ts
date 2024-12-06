@@ -5,11 +5,11 @@ import { Router } from 'express'
 const router = Router()
 
 // Verify Slack request middleware
-router.use('interactions', verifySlackRequest)
+/* router.use('/interactions', verifySlackRequest) */
 
 router.post('/interactions', slackController.interactions)
 router.post('/events', slackController.events)
 router.post('/commands', slackController.events)
-router.post('/demo', slackController.demo)
+router.get('/demo', slackController.demo)
 
 export default router
