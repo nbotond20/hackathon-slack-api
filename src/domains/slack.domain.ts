@@ -102,9 +102,8 @@ const slackDomain = {
 
     const cancelContext = slackBlockKitBuilder.createContext(`❌ *${username}* has canceled this release note.`)
 
-    await slackApi.chat.update({
+    await slackApi.chat.postMessage({
       channel,
-      ts,
       blocks: [cancelContext],
     })
   },
