@@ -4,6 +4,7 @@ import Boom from '@hapi/boom'
 import { SlackActionPayload, slackActionPayloadSchema } from '@models'
 import { getActionTypes } from '@utils/slack-helpers'
 import slackDomain from '@domains/slack.domain'
+import { slackApi } from '@lib/slack/slack-api'
 
 const SlackController = {
   interactions: async (req: Request, res: Response, next: NextFunction) => {

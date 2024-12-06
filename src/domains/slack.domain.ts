@@ -96,15 +96,61 @@ const slackDomain = {
   },
 
   appHomeOpened: async (event: any) => {
-    const slackBlockKitBuilder = SlackBlockKitBuilder()
-
-    const { type, user: username, channel, tab, event_ts: ts } = event
-
-    const cancelContext = slackBlockKitBuilder.createContext(`❌ *${username}* has canceled this release note.`)
-
-    await slackApi.chat.postMessage({
-      channel,
-      blocks: [cancelContext],
+    slackApi.views.publish({
+      user_id: event.user,
+      view: {
+        type: 'home',
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: '*Welcome to Release Notes!*',
+            },
+          },
+          {
+            type: 'divider',
+          },
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: 'Here you can create and manage release notes for your team.',
+            },
+          },
+          {
+            type: 'divider',
+          },
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: 'Select an option below to get started.',
+            },
+          },
+          {
+            type: 'actions',
+            elements: [
+              {
+                type: 'button',
+                text: {
+                  type: 'plain_text',
+                  text: 'Create Release Note',
+                },
+                value: 'create_release_note',
+              },
+              {
+                type: 'button',
+                text: {
+                  type: 'plain_text',
+                  text: 'View Release Notes',
+                },
+                value: 'view_release_notes',
+              },
+            ],
+          },
+        ],
+      },
     })
   },
 }
