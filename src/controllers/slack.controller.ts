@@ -36,7 +36,9 @@ const SlackController = {
     try {
       const challenge = req.body.challenge
 
-      const event = req.event
+      const { event } = req
+
+      console.log('EVENT: ', event)
 
       switch (event) {
         case 'app_home_opened':
