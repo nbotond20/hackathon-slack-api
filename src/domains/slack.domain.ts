@@ -117,6 +117,45 @@ const slackDomain = {
       },
     })
   },
+
+  buildVoteBlocks: async () => {
+    const event = await db.collection('events').findOne()
+
+    const titleBlock = {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${event!.title}*`,
+      },
+    }
+    const blocks = event!.options.map(({ text, value }: any) => ({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${text.text}*`,
+      },
+      accessory: {
+        type: 'button',
+        text: {
+          type: 'plain_text',
+          emoji: true,
+          text: 'Vote',
+        },
+        value,
+      },
+    }))
+
+    await slackApi.chat.postMessage({
+      channel: 'C083Z9RPP9Q',
+      blocks: [
+        titleBlock,
+        {
+          type: 'divider',
+        },
+        ...blocks,
+      ],
+    })
+  },
 }
 
 export default slackDomain
