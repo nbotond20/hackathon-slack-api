@@ -94,6 +94,20 @@ const slackDomain = {
       })
     }
   },
+
+  appHomeOpened: async (event: any) => {
+    const slackBlockKitBuilder = SlackBlockKitBuilder()
+
+    const { type, user: username, channel, tab, event_ts: ts } = event
+
+    const cancelContext = slackBlockKitBuilder.createContext(`❌ *${username}* has canceled this release note.`)
+
+    await slackApi.chat.update({
+      channel,
+      ts,
+      blocks: [cancelContext],
+    })
+  },
 }
 
 export default slackDomain

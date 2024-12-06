@@ -35,7 +35,15 @@ const SlackController = {
     try {
       const challenge = req.body.challenge
 
-      console.log(JSON.stringify(req.body, null, 2))
+      const event = req.event
+
+      switch (event) {
+        case 'app_home_opened':
+          await slackDomain.appHomeOpened(req)
+          break
+        default:
+          throw Boom.badRequest('Invalid action!')
+      }
 
       return res.send(challenge).status(200)
     } catch (error) {
