@@ -36,13 +36,11 @@ const SlackController = {
     try {
       const challenge = req.body.challenge
 
-      const { event } = req
+      const { event } = req.body
 
-      console.log('EVENT: ', event)
-
-      switch (event) {
+      switch (event.type) {
         case 'app_home_opened':
-          await slackDomain.appHomeOpened(req)
+          await slackDomain.appHomeOpened(event)
       }
 
       return res.send(challenge).status(200)
