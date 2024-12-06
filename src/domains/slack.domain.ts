@@ -99,55 +99,19 @@ const slackDomain = {
     await slackApi.views.publish({
       user_id: event.user,
       view: {
-        type: 'home',
-        blocks: [
+        'type': 'home',
+        'blocks': [
           {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: '*Welcome to Release Notes!*',
+            'type': 'section',
+            'text': {
+              'type': 'mrkdwn',
+              'text': 'This is a Block Kit example',
             },
-          },
-          {
-            type: 'divider',
-          },
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: 'Here you can create and manage release notes for your team.',
+            'accessory': {
+              'type': 'image',
+              'image_url': 'https://api.slack.com/img/blocks/bkb_template_images/notifications.png',
+              'alt_text': 'calendar thumbnail',
             },
-          },
-          {
-            type: 'divider',
-          },
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: 'Select an option below to get started.',
-            },
-          },
-          {
-            type: 'actions',
-            elements: [
-              {
-                type: 'button',
-                text: {
-                  type: 'plain_text',
-                  text: 'Create Release Note',
-                },
-                value: 'create_release_note',
-              },
-              {
-                type: 'button',
-                text: {
-                  type: 'plain_text',
-                  text: 'View Release Notes',
-                },
-                value: 'view_release_notes',
-              },
-            ],
           },
         ],
       },
