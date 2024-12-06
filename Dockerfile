@@ -1,4 +1,4 @@
-FROM node:20.2.0-bullseye-slim
+FROM node:22.12.0-bullseye-slim
 
 RUN npm install -g pnpm
 
