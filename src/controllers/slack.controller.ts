@@ -31,12 +31,16 @@ const SlackController = {
       next(error)
     }
   },
-  events: async (req: Request, res: Response, _next: NextFunction) => {
-    const challenge = req.body.challenge
-    
-    console.log(JSON.stringify(req.body, null, 2))
+  events: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const challenge = req.body.challenge
 
-    return res.send(challenge).status(200)
+      console.log(JSON.stringify(req.body, null, 2))
+
+      return res.send(challenge).status(200)
+    } catch (error) {
+      next(error)
+    }
   },
   commands: async (req: Request, res: Response, _next: NextFunction) => {
     console.log(req.body)
