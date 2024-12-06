@@ -14,7 +14,6 @@ const SlackController = {
       if (!isValidPayload) throw Boom.badRequest('Invalid request!')
 
       const actionIds = getActionTypes(payload.actions)
-      console.log('actionIds: ', actionIds)
 
       switch (true) {
         case actionIds.includes('approve'):
@@ -34,8 +33,9 @@ const SlackController = {
   },
   events: async (req: Request, res: Response, _next: NextFunction) => {
     const challenge = req.body.challenge
-    console.log(req.body)
-    console.log(req.query)
+    
+    console.log(JSON.stringify(req.body, null, 2))
+
     return res.send(challenge).status(200)
   },
   commands: async (req: Request, res: Response, _next: NextFunction) => {
