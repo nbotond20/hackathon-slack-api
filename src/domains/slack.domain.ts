@@ -1,98 +1,10 @@
 import { SlackActionPayload, SlackApiError, slackApiErrorSchema } from '@models'
-import { SlackBlockKitBuilder } from '@utils/slack-helpers'
-import Boom from '@hapi/boom'
 import { slackApi } from '@lib/slack/slack-api'
 
 const slackDomain = {
-  // Handle approve action
-  approve: async (payload: SlackActionPayload) => {
-    const slackBlockKitBuilder = SlackBlockKitBuilder()
-
-    const ts = payload.message?.ts
-    const blocksWithoutAction =
-      payload.message?.blocks?.filter((block: { type: string }) => block.type !== 'actions') ?? []
-
-    const isMessages = !!payload.message && !!ts
-
-    const channel = payload.container?.channel_id
-    const username = payload.user.username
-    const repostChannels = payload.actions[0].value ?? channel
-
-    if (repostChannels) {
-      const repostChannelsArray = repostChannels.split(';')
-
-      for (const repostChannel of repostChannelsArray) {
-        try {
-          await slackApi.chat.postMessage({
-            text: payload.message?.text ?? '',
-            channel: repostChannel,
-            blocks: blocksWithoutAction,
-          })
-        } catch (error) {
-          const { success: isSlackError } = slackApiErrorSchema.safeParse(error)
-
-          if (!isSlackError) throw Boom.internal('Something went wrong!')
-
-          const slackError = error as SlackApiError
-          const { data } = slackError
-
-          if (data.error === 'channel_not_found') {
-            await slackApi.chat.postEphemeral({
-              channel,
-              user: payload.user.id,
-              text: `Channel #${repostChannel} not found!`,
-              blocks: [slackBlockKitBuilder.createSection(`*Channel \`${repostChannel}\` was not found❗*`)],
-              as_user: true,
-            })
-          } else if (data.error === 'not_in_channel') {
-            await slackApi.chat.postEphemeral({
-              channel,
-              user: payload.user.id,
-              text: `Release Notes bot is not in channel #${repostChannel}!`,
-              blocks: [
-                slackBlockKitBuilder.createSection(`*Release Notes bot is not in channel #${repostChannel}*❗`),
-                slackBlockKitBuilder.createContext('Add the bot by typing `/invite @Release Notes` in the channel.'),
-              ],
-            })
-          }
-
-          throw Boom.internal('Something went wrong!')
-        }
-      }
-    }
-
-    const approveContext = slackBlockKitBuilder.createContext(`✅ *${username}* has approved this release note.`)
-    if (isMessages) {
-      await slackApi.chat.update({
-        channel,
-        ts,
-        blocks: [...blocksWithoutAction, approveContext],
-      })
-    }
-  },
-
-  // Handle cancel action
-  cancel: async (payload: SlackActionPayload) => {
-    const slackBlockKitBuilder = SlackBlockKitBuilder()
-
-    const ts = payload.message?.ts
-    const blocksWithoutAction =
-      payload.message?.blocks?.filter((block: { type: string }) => block.type !== 'actions') ?? []
-
-    const isMessages = !!payload.message && !!ts
-
-    const channel = payload.container?.channel_id
-    const username = payload.user.name
-
-    const cancelContext = slackBlockKitBuilder.createContext(`❌ *${username}* has canceled this release note.`)
-
-    if (isMessages) {
-      await slackApi.chat.update({
-        channel,
-        ts,
-        blocks: [...blocksWithoutAction, cancelContext],
-      })
-    }
+  appHomeSubmitted: async (payload: SlackActionPayload) => {
+    const { values: formValues } = payload.view.state
+    console.log(JSON.stringify(Object.values(formValues), null, 2))
   },
 
   appHomeOpened: async (event: any) => {
@@ -102,16 +14,171 @@ const slackDomain = {
         'type': 'home',
         'blocks': [
           {
-            'type': 'section',
-            'text': {
-              'type': 'mrkdwn',
-              'text': 'This is a Block Kit example',
+            'type': 'input',
+            'element': {
+              'type': 'plain_text_input',
+              'action_id': 'event-title',
             },
-            'accessory': {
-              'type': 'image',
-              'image_url': 'https://api.slack.com/img/blocks/bkb_template_images/notifications.png',
-              'alt_text': 'calendar thumbnail',
+            'label': {
+              'type': 'plain_text',
+              'text': 'Event Title',
+              'emoji': true,
             },
+          },
+          {
+            'type': 'input',
+            'element': {
+              'type': 'multi_static_select',
+              'placeholder': {
+                'type': 'plain_text',
+                'text': 'Select options',
+                'emoji': true,
+              },
+              'options': [
+                {
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Hétfő',
+                    'emoji': true,
+                  },
+                  'value': 'day-1',
+                },
+                {
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Kedd',
+                    'emoji': true,
+                  },
+                  'value': 'day-2',
+                },
+                {
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Szerda',
+                    'emoji': true,
+                  },
+                  'value': 'day-3',
+                },
+                {
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Csütörtök',
+                    'emoji': true,
+                  },
+                  'value': 'day-4',
+                },
+                {
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Péntek',
+                    'emoji': true,
+                  },
+                  'value': 'day-5',
+                },
+                {
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Szombat',
+                    'emoji': true,
+                  },
+                  'value': 'day-6',
+                },
+                {
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Vasárnap',
+                    'emoji': true,
+                  },
+                  'value': 'day-7',
+                },
+              ],
+              'action_id': 'event-options',
+            },
+            'label': {
+              'type': 'plain_text',
+              'text': 'Options',
+              'emoji': true,
+            },
+          },
+          {
+            'type': 'rich_text',
+            'elements': [
+              {
+                'type': 'rich_text_section',
+                'elements': [
+                  {
+                    'type': 'text',
+                    'text': 'Vote Starts',
+                    'style': {
+                      'bold': true,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            'type': 'actions',
+            'elements': [
+              {
+                'type': 'datepicker',
+                'initial_date': '2024-12-06',
+                'placeholder': {
+                  'type': 'plain_text',
+                  'text': 'Select a date',
+                  'emoji': true,
+                },
+                'action_id': 'event-start-date',
+              },
+              {
+                'type': 'timepicker',
+                'initial_time': '13:37',
+                'placeholder': {
+                  'type': 'plain_text',
+                  'text': 'Select time',
+                  'emoji': true,
+                },
+                'action_id': 'event-start-time',
+              },
+            ],
+          },
+          {
+            'type': 'input',
+            'element': {
+              'type': 'radio_buttons',
+              'options': [
+                {
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Weekly',
+                    'emoji': true,
+                  },
+                  'value': 'weekly',
+                },
+              ],
+              'action_id': 'event-weekly',
+            },
+            'label': {
+              'type': 'plain_text',
+              'text': 'Recurring',
+              'emoji': true,
+            },
+          },
+          {
+            'type': 'actions',
+            'elements': [
+              {
+                'type': 'button',
+                'text': {
+                  'type': 'plain_text',
+                  'text': 'Save',
+                  'emoji': true,
+                },
+                'value': 'submit',
+                'style': 'primary',
+                'action_id': 'submit-action',
+              },
+            ],
           },
         ],
       },
