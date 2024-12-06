@@ -118,42 +118,91 @@ const slackDomain = {
     })
   },
 
+  addVote: async (payload: any) => {
+    const { value } = payload.actions[0]
+    const eventCollection = db.collection('events')
+    const foundSetting = await eventCollection.findOne()
+    if (!foundSetting) {
+      return
+    }
+
+    const voteCollection = db.collection('votes')
+    console.log('foundSetting', foundSetting)
+  },
+
   buildVoteBlocks: async () => {
     const event = await db.collection('events').findOne()
 
     const titleBlock = {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*${event!.title}*`,
+      'type': 'header',
+      'text': {
+        type: 'plain_text',
+        text: `${event!.title}`,
+        'emoji': true,
       },
     }
-    const blocks = event!.options.map(({ text, value }: any) => ({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*${text.text}*`,
-      },
-      accessory: {
-        type: 'button',
-        text: {
-          type: 'plain_text',
-          emoji: true,
-          text: 'Vote',
-        },
-        value,
-      },
-    }))
 
-    await slackApi.chat.postMessage({
-      channel: 'C083Z9RPP9Q',
-      blocks: [
-        titleBlock,
+    const blocks = event!.options
+      .map(({ text, value }: any) => [
         {
           type: 'divider',
         },
-        ...blocks,
-      ],
+        {
+          'type': 'rich_text',
+          'elements': [
+            {
+              'type': 'rich_text_section',
+              'elements': [
+                {
+                  'type': 'text',
+                  'text': text.text,
+                  'style': {
+                    'bold': true,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          'type': 'actions',
+          'elements': [
+            {
+              'type': 'button',
+              'text': {
+                'type': 'plain_text',
+                'emoji': true,
+                'text': 'Vote',
+              },
+              'style': 'primary',
+              'value': value,
+              'action_id': 'vote-action',
+            },
+            {
+              'type': 'button',
+              'text': {
+                'type': 'plain_text',
+                'emoji': true,
+                'text': '+1',
+              },
+              'action_id': 'plus-one-action',
+              'value': value,
+            },
+          ],
+        },
+        {
+          'type': 'section',
+          'text': {
+            'type': 'mrkdwn',
+            'text': '<!subteam^S08432SPV2Q>',
+          },
+        },
+      ])
+      .flat()
+
+    await slackApi.chat.postMessage({
+      channel: 'C084N8KBJTA',
+      blocks: [titleBlock, ...blocks],
     })
   },
 }

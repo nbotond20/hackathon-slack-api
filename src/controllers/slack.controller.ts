@@ -8,12 +8,15 @@ import { db } from '@db'
 const SlackController = {
   interactions: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log('im here')
       const payload = JSON.parse(req.body.payload) as SlackActionPayload
+      console.log('im here', payload)
 
       if (payload.type === 'block_actions') {
         if (payload.actions[0].action_id === 'submit-action') {
           await slackDomain.appHomeSubmitted(payload)
+        }
+        if (payload.actions[0].action_id === 'vote-action') {
+          await slackDomain.addVote(payload)
         }
       }
 
