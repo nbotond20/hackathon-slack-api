@@ -1,8 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
-import Boom from '@hapi/boom'
 
-import { SlackActionPayload, slackActionPayloadSchema } from '@models'
-import { getActionTypes } from '@utils/slack-helpers'
+import { SlackActionPayload } from '@models'
 import slackDomain from '@domains/slack.domain'
 import { slackApi } from '@lib/slack/slack-api'
 
@@ -11,20 +9,10 @@ const SlackController = {
     try {
       const payload = JSON.parse(req.body.payload) as SlackActionPayload
 
-      const { success: isValidPayload } = slackActionPayloadSchema.safeParse(payload)
-      if (!isValidPayload) throw Boom.badRequest('Invalid request!')
-
-      const actionIds = getActionTypes(payload.actions)
-
-      switch (true) {
-        case actionIds.includes('approve'):
-          await slackDomain.approve(payload)
-          break
-        case actionIds.includes('cancel'):
-          await slackDomain.cancel(payload)
-          break
-        default:
-          throw Boom.badRequest('Invalid action!')
+      if (payload.type === 'block_actions') {
+        if (payload.actions[0].action_id === 'submit-action') {
+          await slackDomain.appHomeSubmitted(payload)
+        }
       }
 
       return res.sendStatus(200)
