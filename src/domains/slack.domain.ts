@@ -96,9 +96,9 @@ const slackDomain = {
   },
 
   appHomeOpened: async (event: any) => {
-    slackApi.views.publish({
+    await slackApi.views.publish({
       user_id: event.user,
-      view: {
+      view: JSON.stringify({
         type: 'home',
         blocks: [
           {
@@ -150,7 +150,7 @@ const slackDomain = {
             ],
           },
         ],
-      },
+      }),
     })
   },
 }
