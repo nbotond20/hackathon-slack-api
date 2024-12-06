@@ -14,6 +14,7 @@ const SlackController = {
       if (!isValidPayload) throw Boom.badRequest('Invalid request!')
 
       const actionIds = getActionTypes(payload.actions)
+      console.log('actionIds: ', actionIds)
 
       switch (true) {
         case actionIds.includes('approve'):
