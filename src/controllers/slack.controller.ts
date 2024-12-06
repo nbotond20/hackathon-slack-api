@@ -55,7 +55,7 @@ const SlackController = {
   },
   demo: async (req: Request, res: Response, _next: NextFunction) => {
     await slackApi.chat.postMessage({
-      channel: 'C01T1LZ',
+      channel: 'C084BT92QKT',
       blocks: [
         {
           'type': 'section',
