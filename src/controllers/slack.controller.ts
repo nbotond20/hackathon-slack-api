@@ -56,6 +56,77 @@ const SlackController = {
     console.log(req.query)
     return res.sendStatus(200)
   },
+  demo: async (req: Request, res: Response, _next: NextFunction) => {
+    await slackApi.chat.postMessage({
+      channel: 'C01T1LZ',
+      blocks: [
+        {
+          'type': 'section',
+          'text': {
+            'type': 'plain_text',
+            'text': 'This is a section block with checkboxes.',
+          },
+          'accessory': {
+            'type': 'checkboxes',
+            'options': [
+              {
+                'text': {
+                  'type': 'plain_text',
+                  'text': '*this is plain_text text*',
+                },
+                'description': {
+                  'type': 'plain_text',
+                  'text': '*this is plain_text text*',
+                },
+                'value': 'value-0',
+              },
+              {
+                'text': {
+                  'type': 'plain_text',
+                  'text': '*this is plain_text text*',
+                },
+                'description': {
+                  'type': 'plain_text',
+                  'text': '*this is plain_text text*',
+                },
+                'value': 'value-1',
+              },
+              {
+                'text': {
+                  'type': 'plain_text',
+                  'text': '*this is plain_text text*',
+                },
+                'description': {
+                  'type': 'plain_text',
+                  'text': '*this is plain_text text*',
+                },
+                'value': 'value-2',
+              },
+            ],
+            'action_id': 'checkboxes-action',
+          },
+        },
+        {
+          'type': 'section',
+          'text': {
+            'type': 'plain_text',
+            'text': 'This is a section block with a button.',
+          },
+          'accessory': {
+            'type': 'button',
+            'text': {
+              'type': 'plain_text',
+              'text': 'Click Me',
+              'emoji': true,
+            },
+            'value': 'click_me_123',
+            'action_id': 'button-action',
+          },
+        },
+      ],
+    })
+    return res.sendStatus(200)
+  },
 }
 
 export default SlackController
