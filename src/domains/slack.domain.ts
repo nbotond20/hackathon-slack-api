@@ -1,13 +1,45 @@
 import { SlackActionPayload, SlackApiError, slackApiErrorSchema } from '@models'
 import { slackApi } from '@lib/slack/slack-api'
+import { DAY_OPTIONS } from 'src/constants/DAY_OPTIONS'
+import { db } from '@db'
 
 const slackDomain = {
   appHomeSubmitted: async (payload: SlackActionPayload) => {
     const { values: formValues } = payload.view.state
-    console.log(JSON.stringify(Object.values(formValues), null, 2))
+    const [title, options, startTime] = Object.values(formValues)
+
+    const dbObject = {
+      title: title['event-title']['value'],
+      options: options['event-options']['selected_options'],
+      startTime: startTime['event-start-time']['selected_date_time'],
+    }
+
+    const collection = db.collection('events')
+    const foundSettings = await collection.findOne()
+    await collection.updateOne({ _id: foundSettings?._id }, { $set: dbObject }, { upsert: true })
+
+    await slackApi.views.update({
+      view_id: payload.view.id,
+      view: {
+        'type': 'home',
+        'blocks': [
+          ...payload.view.blocks,
+          {
+            'type': 'section',
+            'text': {
+              'type': 'mrkdwn',
+              'text': `*Saved*`,
+            },
+          },
+        ],
+      },
+    })
   },
 
   appHomeOpened: async (event: any) => {
+    const collection = db.collection('events')
+    const foundSettings = await collection.findOne()
+
     await slackApi.views.publish({
       user_id: event.user,
       view: {
@@ -18,6 +50,7 @@ const slackDomain = {
             'element': {
               'type': 'plain_text_input',
               'action_id': 'event-title',
+              'initial_value': foundSettings?.title,
             },
             'label': {
               'type': 'plain_text',
@@ -34,65 +67,16 @@ const slackDomain = {
                 'text': 'Select options',
                 'emoji': true,
               },
-              'options': [
-                {
-                  'text': {
-                    'type': 'plain_text',
-                    'text': 'Hétfő',
-                    'emoji': true,
-                  },
-                  'value': 'day-1',
+              'options': DAY_OPTIONS.map(option => ({
+                'text': {
+                  'type': 'plain_text',
+                  'text': option.name,
+                  'emoji': true,
                 },
-                {
-                  'text': {
-                    'type': 'plain_text',
-                    'text': 'Kedd',
-                    'emoji': true,
-                  },
-                  'value': 'day-2',
-                },
-                {
-                  'text': {
-                    'type': 'plain_text',
-                    'text': 'Szerda',
-                    'emoji': true,
-                  },
-                  'value': 'day-3',
-                },
-                {
-                  'text': {
-                    'type': 'plain_text',
-                    'text': 'Csütörtök',
-                    'emoji': true,
-                  },
-                  'value': 'day-4',
-                },
-                {
-                  'text': {
-                    'type': 'plain_text',
-                    'text': 'Péntek',
-                    'emoji': true,
-                  },
-                  'value': 'day-5',
-                },
-                {
-                  'text': {
-                    'type': 'plain_text',
-                    'text': 'Szombat',
-                    'emoji': true,
-                  },
-                  'value': 'day-6',
-                },
-                {
-                  'text': {
-                    'type': 'plain_text',
-                    'text': 'Vasárnap',
-                    'emoji': true,
-                  },
-                  'value': 'day-7',
-                },
-              ],
+                'value': option.id,
+              })),
               'action_id': 'event-options',
+              'initial_options': foundSettings?.options,
             },
             'label': {
               'type': 'plain_text',
@@ -101,66 +85,15 @@ const slackDomain = {
             },
           },
           {
-            'type': 'rich_text',
-            'elements': [
-              {
-                'type': 'rich_text_section',
-                'elements': [
-                  {
-                    'type': 'text',
-                    'text': 'Vote Starts',
-                    'style': {
-                      'bold': true,
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            'type': 'actions',
-            'elements': [
-              {
-                'type': 'datepicker',
-                'initial_date': '2024-12-06',
-                'placeholder': {
-                  'type': 'plain_text',
-                  'text': 'Select a date',
-                  'emoji': true,
-                },
-                'action_id': 'event-start-date',
-              },
-              {
-                'type': 'timepicker',
-                'initial_time': '13:37',
-                'placeholder': {
-                  'type': 'plain_text',
-                  'text': 'Select time',
-                  'emoji': true,
-                },
-                'action_id': 'event-start-time',
-              },
-            ],
-          },
-          {
             'type': 'input',
             'element': {
-              'type': 'radio_buttons',
-              'options': [
-                {
-                  'text': {
-                    'type': 'plain_text',
-                    'text': 'Weekly',
-                    'emoji': true,
-                  },
-                  'value': 'weekly',
-                },
-              ],
-              'action_id': 'event-weekly',
+              'type': 'datetimepicker',
+              'action_id': 'event-start-time',
+              initial_date_time: foundSettings?.startTime,
             },
             'label': {
               'type': 'plain_text',
-              'text': 'Recurring',
+              'text': 'Vote Starts',
               'emoji': true,
             },
           },
