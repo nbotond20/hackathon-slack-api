@@ -19,9 +19,10 @@ const main = async () => {
 
   //await initializeJobs(); // Összes job újraütemezése
   await watchEvents()
+  await initializeScheduler()
   setInterval(() => {
     initializeScheduler()
-  }, 30000)
+  }, 10000)
   // watchSchedulerLock()
   // List the available routes
   app.use(setBasePath('/'), slackRoute)

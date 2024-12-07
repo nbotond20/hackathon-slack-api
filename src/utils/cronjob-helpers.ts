@@ -112,13 +112,14 @@ export const acquireLock = async (): Promise<boolean> => {
   const expiresAt = new Date(now.getTime() + lockDuration)
   const isLockExists = await db.collection('schedulerLock').findOne({
     id: 'scheduler-lock',
-    $and: [{ lockedBy: { $ne: null }, expiresAt: { $gt: now } }],
+    $and: [{ lockedBy: { $ne: null }, $or: [{ expiresAt: { $gt: now } }, { expiresAt: { $exists: false } }] }],
   })
+  console.log('Lock ellenőrzése...', isLockExists)
   if (isLockExists) {
     if (isLockExists.lockedBy === instanceId) {
       console.log('Az ütemezést már ez az instance kezeli.')
       await renewLock(expiresAt)
-      return true
+      return false
     } else {
       console.log('Lock nem megszerezhető, másik instance kezeli az ütemezést.')
       return false
@@ -152,11 +153,11 @@ export const renewLock = async (newExpiresDate: Date) => {
     },
     {
       $set: { expiresAt: newExpiresDate },
-    }
+    },
+    { returnDocument: 'after' }
   )
-
-  if (result?.value) {
-    console.log('Lock megújítva:', result.value)
+  if (result) {
+    console.log('Lock megújítva:', result)
     return true
   }
 
