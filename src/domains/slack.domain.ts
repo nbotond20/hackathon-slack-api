@@ -477,18 +477,6 @@ const slackDomain = {
             : ':x: '
           : undefined
 
-        /* const emojiBlock = {
-          'type': 'context',
-          'block_id': 'emoji',
-          'elements': [
-            {
-              'type': 'mrkdwn',
-              'text': `${emoji} ${
-                emoji === ':white_check_mark: ' ? 'Limit reached' : 'Limit not reached'
-              } (${limits.join(', ')})`,
-            },
-          ],
-        } */
         const limittext = limits.length ? ` (${limits.join(', ')})` : ''
         const newVoteBlocks = [
           {
