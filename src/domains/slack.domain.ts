@@ -498,8 +498,9 @@ const slackDomain = {
         }
 
         if (emoji) {
-          blocks[blocks.length - 1] = {
+          const emojiBlock = {
             'type': 'context',
+            'block_id': 'emoji',
             'elements': [
               {
                 'type': 'mrkdwn',
@@ -509,6 +510,13 @@ const slackDomain = {
               },
             ],
           }
+          if (blocks[blocks.length - 1].block_id === 'emoji') {
+            blocks[blocks.length - 1] = emojiBlock
+          } else {
+            blocks.push(emojiBlock)
+          }
+        } else {
+          blocks = blocks.filter((block: any) => block.block_id !== 'emoji')
         }
 
         await session.commitTransaction()
