@@ -869,6 +869,93 @@ const slackDomain = {
       channel: payload.channel.id,
       blocks: payload.message.blocks.filter((block: any) => block.type !== 'actions'),
     })
+
+    const eventCollection = db.collection('events')
+    const event = await eventCollection.findOne({ _id: new ObjectId(payload.actions[0].value) })
+
+    const votes = [...(event.votes || []), ...(event.externalVotes || [])]
+
+    const limits = (event.limits || []).map((limit: any) => parseInt(limit.value))
+
+    const passedOptions = event.options
+      .map((option: any) => {
+        const filteredVotes = votes.filter((vote: any) => vote.value === option.value)
+        const voteCount = filteredVotes.length
+
+        return {
+          ...option,
+          voteCount,
+          voters: filteredVotes,
+          passed: event.limits?.length ? limits.some(limit => limit === voteCount) : true,
+        }
+      })
+      .filter((option: any) => option.passed)
+
+    if (!passedOptions.length) {
+      await slackApi.chat.postMessage({
+        channel: payload.channel.id,
+        text: 'No options passed the limit!',
+        thread_ts: payload.message.ts,
+      })
+      return
+    }
+
+    const mostVotedOption = passedOptions.reduce((prev: any, current: any) =>
+      prev.voteCount > current.voteCount ? prev : current
+    )
+
+    // TODO Make groups
+
+    await slackApi.chat.postMessage({
+      channel: payload.channel.id,
+      text: 'Voting has finished!',
+      thread_ts: payload.message.ts,
+      blocks: [
+        {
+          'type': 'section',
+          'text': {
+            'type': 'mrkdwn',
+            'text': '*Most voted option*',
+          },
+        },
+        {
+          'type': 'divider',
+        },
+        {
+          'type': 'section',
+          'text': {
+            'type': 'mrkdwn',
+            'text': mostVotedOption.text.text,
+          },
+        },
+        {
+          'type': 'context',
+          'elements': [
+            {
+              'type': 'mrkdwn',
+              'text': 'Votes: ' + mostVotedOption.voteCount,
+            },
+          ],
+        },
+        {
+          'type': 'section',
+          'text': {
+            'type': 'mrkdwn',
+            'text': '*Voters*',
+          },
+        },
+        {
+          'type': 'divider',
+        },
+        ...mostVotedOption.voters.map((voter: any) => ({
+          'type': 'section',
+          'text': {
+            'type': 'mrkdwn',
+            'text': `<@${voter.userId}>`,
+          },
+        })),
+      ],
+    })
   },
 }
 
