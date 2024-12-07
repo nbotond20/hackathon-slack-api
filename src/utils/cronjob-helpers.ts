@@ -3,6 +3,7 @@ import cron from 'node-cron'
 import { db } from '@db'
 import { instanceId } from '../index'
 import { v4 as uuidv4 } from 'uuid'
+import * as console from 'node:console'
 
 export const scheduleVoteEvent = async (event: any) => {
   try {
@@ -11,6 +12,7 @@ export const scheduleVoteEvent = async (event: any) => {
       startDate.getMonth() + 1
     } *`
     const id = event._id.toString()
+    console.log('jobok törlés elott', Object.keys(activeJobs))
     stopScheduledJob(id)
     const uu = uuidv4()
     const job = cron.schedule('* * * * *', () => {
@@ -65,6 +67,7 @@ export const watchEvents = async () => {
 
 export const stopScheduledJob = (id: string) => {
   if (activeJobs[id]) {
+    console.log('jobok', activeJobs)
     activeJobs[id].stop()
     delete activeJobs[id]
     console.log(`Job törölve: ${id}`)
@@ -90,6 +93,7 @@ export const stopScheduledJob = (id: string) => {
 }*/
 
 export const initializeScheduler = async () => {
+  console.log(Object.keys(activeJobs), 'active jobok ')
   const lockAcquired = await acquireLock()
   if (lockAcquired) {
     await initializeJobs() // Csak akkor ütemezünk, ha megszereztük a lock-ot
@@ -114,14 +118,14 @@ export const acquireLock = async (): Promise<boolean> => {
     id: 'scheduler-lock',
     $and: [{ lockedBy: { $ne: null }, $or: [{ expiresAt: { $gt: now } }, { expiresAt: { $exists: false } }] }],
   })
-  console.log('Lock ellenőrzése...', isLockExists)
+  console.log('Lock ellenőrzése...')
   if (isLockExists) {
     if (isLockExists.lockedBy === instanceId) {
-      console.log('Az ütemezést már ez az instance kezeli.')
+      console.log('Az ütemezést már ez az instance kezeli.', instanceId)
       await renewLock(expiresAt)
       return false
     } else {
-      console.log('Lock nem megszerezhető, másik instance kezeli az ütemezést.')
+      console.log('Lock nem megszerezhető, másik instance kezeli az ütemezést.', instanceId)
       return false
     }
   } else {
