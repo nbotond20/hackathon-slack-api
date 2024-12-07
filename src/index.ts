@@ -18,11 +18,11 @@ const main = async () => {
   await initDB()
 
   //await initializeJobs(); // Összes job újraütemezése
-  await watchEvents()
-  //await initializeScheduler()
+  /* await watchEvents()
+  await initializeScheduler()
   setInterval(() => {
-    //initializeScheduler()
-  }, 10000)
+    initializeScheduler()
+  }, 10000) */
   // watchSchedulerLock()
   // List the available routes
   app.use(setBasePath('/'), slackRoute)

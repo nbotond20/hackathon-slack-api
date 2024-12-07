@@ -372,25 +372,16 @@ const slackDomain = {
                 'value': option.toString(),
               })),
               'action_id': 'event-limits',
-              'initial_options': lastEvent?.limits?.length
-                ? lastEvent?.limits.map(limit => ({
-                    'text': {
-                      'type': 'plain_text',
-                      'text': limit.text.text,
-                      'emoji': true,
-                    },
-                    'value': limit.value,
-                  }))
-                : [
-                    {
-                      'text': {
-                        'type': 'plain_text',
-                        'text': '1',
-                        'emoji': true,
-                      },
-                      'value': '1',
-                    },
-                  ],
+              ...(lastEvent?.limits && {
+                'initial_options': lastEvent?.limits.map(limit => ({
+                  'text': {
+                    'type': 'plain_text',
+                    'text': limit.text.text,
+                    'emoji': true,
+                  },
+                  'value': limit.value,
+                })),
+              }),
             },
             'label': {
               'type': 'plain_text',
@@ -478,6 +469,16 @@ const slackDomain = {
         const filteredVotes = newVotes.filter((vote: any) => vote.value === value)
         const voteCount = filteredVotes.length
 
+        const limits = foundSetting.limits
+          .map((limit: any) => parseInt(limit.value))
+          .sort((a: number, b: number) => a - b)
+
+        const emoji = limits.length
+          ? limits.some(limit => limit === newVotes.length)
+            ? ':white_check_mark:'
+            : ':x:'
+          : undefined
+
         const newVoteBlocks = [
           {
             'type': 'plain_text',
@@ -494,6 +495,20 @@ const slackDomain = {
         blocks[voteBlockIndex + 1] = {
           ...blocks[voteBlockIndex + 1],
           elements: newVoteBlocks,
+        }
+
+        if (emoji) {
+          blocks[blocks.length - 1] = {
+            'type': 'context',
+            'elements': [
+              {
+                'type': 'mrkdwn',
+                'text': `${emoji} ${
+                  emoji === ':white_check_mark:' ? 'Limit reached' : 'Limit not reached'
+                } (${limits.join(', ')})`,
+              },
+            ],
+          }
         }
 
         await session.commitTransaction()
