@@ -12,13 +12,15 @@ import { NextFunction, Request, Response } from 'express'
 const slackDomain = {
   appHomeSubmitted: async (payload: SlackActionPayload) => {
     const { values: formValues } = payload.view.state
-    const [title, options, startTime, channels, recurring] = Object.values(formValues)
+    console.log('formValues: ', formValues)
+    const [title, options, startTime, channels, recurring, limits] = Object.values(formValues)
 
     const dbObject = {
       title: title['event-title']['value'],
       options: options['event-options']['selected_options'],
       startTime: startTime['event-start-time']['selected_date_time'],
       selectedChannels: channels['multi_users_select-action']['selected_channels'],
+      limits: limits['event-limits']['selected_options'],
       repeat: recurring['event-recurring']['selected_option']?.value,
       lastUpdatedBy: instanceId,
     }
@@ -153,6 +155,15 @@ const slackDomain = {
             {
               'type': 'mrkdwn',
               'text': 'Channels: ' + event.selectedChannels.map((channel: any) => `<#${channel}>`).join(', '),
+            },
+          ],
+        },
+        {
+          'type': 'context',
+          'elements': [
+            {
+              'type': 'mrkdwn',
+              'text': 'Limits: ' + event.limits.map(limit => limit.text.text).join(', '),
             },
           ],
         },
@@ -320,6 +331,50 @@ const slackDomain = {
             'label': {
               'type': 'plain_text',
               'text': 'Recurring (optional)',
+              'emoji': true,
+            },
+          },
+          {
+            'type': 'input',
+            'element': {
+              'type': 'multi_static_select',
+              'placeholder': {
+                'type': 'plain_text',
+                'text': 'Select limits',
+                'emoji': true,
+              },
+              'options': Array.from({ length: 100 }, (_, i) => i + 1).map(option => ({
+                'text': {
+                  'type': 'plain_text',
+                  'text': option.toString(),
+                  'emoji': true,
+                },
+                'value': option.toString(),
+              })),
+              'action_id': 'event-limits',
+              'initial_options': lastEvent?.limits?.length
+                ? lastEvent?.limits.map(limit => ({
+                    'text': {
+                      'type': 'plain_text',
+                      'text': limit.text.text,
+                      'emoji': true,
+                    },
+                    'value': limit.value,
+                  }))
+                : [
+                    {
+                      'text': {
+                        'type': 'plain_text',
+                        'text': '1',
+                        'emoji': true,
+                      },
+                      'value': '1',
+                    },
+                  ],
+            },
+            'label': {
+              'type': 'plain_text',
+              'text': 'Limits (optional)',
               'emoji': true,
             },
           },
