@@ -21,6 +21,7 @@
     "@slack/web-api": "^6.11.0",
     "@types/node-cron": "^3.0.11",
     "cors": "2.8.5",
+    "cron-parser": "^4.9.0",
     "dotenv": "16.3.1",
     "express": "4.18.2",
     "helmet": "7.1.0",

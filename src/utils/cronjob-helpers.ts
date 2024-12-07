@@ -4,13 +4,21 @@ import { db } from '@db'
 import { instanceId } from '../index'
 import { v4 as uuidv4 } from 'uuid'
 import * as console from 'node:console'
+import parser from 'cron-parser'
 
 export const scheduleVoteEvent = async (event: any) => {
   try {
     const startDate = new Date(event.startTime * 1000)
-    const cronExpression = `${startDate.getMinutes()} ${startDate.getHours()} ${startDate.getDate()} ${
-      startDate.getMonth() + 1
-    } *`
+    const cronExpression = getCronExpression(startDate, event.repeat)
+    const interval = parser.parseExpression(cronExpression)
+    console.log(
+      'következoooo',
+      interval.next().toString(),
+      interval.next().toString(),
+      interval.next().toString(),
+      startDate,
+      event.repeat
+    )
     const id = event._id.toString()
     console.log('jobok törlés elott', Object.keys(activeJobs))
     stopScheduledJob(id)
@@ -74,39 +82,11 @@ export const stopScheduledJob = (id: string) => {
   }
 }
 
-/*export const watchSchedulerLock = async () => {
-  const changeStream = db.collection('schedulerLock').watch()
-
-  changeStream.on('change', async change => {
-    if (change.operationType === 'update') {
-      const updatedFields = change.updateDescription.updatedFields
-
-      // Ha a `lockedBy` mező null lett, próbáljuk megszerezni a lockot
-      if (updatedFields?.lockedBy === null) {
-        console.log('A lock felszabadult, próbáljuk megszerezni.')
-        await initializeScheduler()
-      }
-    }
-  })
-
-  console.log('Scheduler lock watcher elindult.')
-}*/
-
 export const initializeScheduler = async () => {
   console.log(Object.keys(activeJobs), 'active jobok ')
   const lockAcquired = await acquireLock()
   if (lockAcquired) {
     await initializeJobs() // Csak akkor ütemezünk, ha megszereztük a lock-ot
-  }
-}
-
-export const releaseLock = async () => {
-  try {
-    await db
-      .collection('schedulerLock')
-      .findOneAndUpdate({ id: 'scheduler-lock', lockedBy: instanceId }, { $set: { lockedBy: null } })
-  } catch (error) {
-    console.log('Hiba történt a lock feloldása során:', error)
   }
 }
 
@@ -167,4 +147,17 @@ export const renewLock = async (newExpiresDate: Date) => {
 
   console.log('Lock megújítása nem sikerült.')
   return false
+}
+
+const getCronExpression = (date: Date, period: 'weekly' | 'monthly' | 'daily' | null) => {
+  if (period === 'weekly') {
+    return `${date.getMinutes()} ${date.getHours()} * * ${date.getDay()}`
+  }
+  if (period === 'monthly') {
+    return `${date.getMinutes()} ${date.getHours()} ${date.getDate()} * *`
+  }
+  if (period === 'daily') {
+    return `${date.getMinutes()} ${date.getHours()} * * *`
+  }
+  return `${date.getMinutes()} ${date.getHours()} ${date.getDate()} ${date.getMonth() + 1} *`
 }
