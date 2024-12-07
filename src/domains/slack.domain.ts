@@ -25,8 +25,6 @@ const slackDomain = {
       { $set: dbObject },
       { upsert: true }
     )
-    console.log(foundSettings)
-    console.log(result)
     const object = foundSettings ? { ...foundSettings, ...dbObject } : { ...dbObject, _id: result.upsertedId }
     await scheduleVoteEvent(object)
 

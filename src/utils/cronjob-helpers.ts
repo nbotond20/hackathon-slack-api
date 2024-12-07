@@ -2,6 +2,7 @@ import { activeJobs } from '../constants/activeJobs'
 import cron from 'node-cron'
 import { db } from '@db'
 import { instanceId } from '../index'
+import { v4 as uuidv4 } from 'uuid'
 
 export const scheduleVoteEvent = async (event: any) => {
   try {
@@ -16,9 +17,9 @@ export const scheduleVoteEvent = async (event: any) => {
       delete activeJobs[id]
       console.log(`Korábbi job törölve: ${id} schedleVoteEvent`)
     }
-
-    const job = cron.schedule(cronExpression, () => {
-      console.log(`Job fut: ${event.name} - ${id}`)
+    const uu = uuidv4()
+    const job = cron.schedule('* * * * *', () => {
+      console.log(`Job fut v1: ${event.name} - ${id} ${uu}`)
     })
 
     // Tároljuk az új jobot az `activeJobs` tárolóban
@@ -33,7 +34,7 @@ export const watchTasks = async () => {
     const changeStream = db.collection('events').watch()
 
     changeStream.on('change', async change => {
-      console.log('MongoDB változás:', change)
+      console.log('MongoDB változás')
 
       if (change.operationType === 'update') {
         const id = change.documentKey._id.toString()
