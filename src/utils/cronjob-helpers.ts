@@ -58,10 +58,12 @@ export const watchEvents = async () => {
       }
 
       if (
-        (change.operationType === 'update' && 'startDate' in (change.updateDescription.updatedFields || {})) ||
+        (change.operationType === 'update' &&
+          ('startDate' in (change.updateDescription.updatedFields || {}) ||
+            'repeat' in (change.updateDescription.updatedFields || {}))) ||
         change.operationType === 'insert'
       ) {
-        scheduleVoteEvent(change.fullDocument)
+        await scheduleVoteEvent(change.fullDocument)
       }
       if (change.operationType === 'delete') {
         const id = change.documentKey._id.toString()
