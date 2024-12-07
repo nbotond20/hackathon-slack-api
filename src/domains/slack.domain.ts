@@ -142,6 +142,64 @@ const slackDomain = {
     console.log('foundSetting', foundSetting)
   },
 
+  showOutsiderModal: async (payload: any) => {
+    const { trigger_id } = payload
+
+    await slackApi.views.open({
+      trigger_id,
+      view: {
+        'title': {
+          'type': 'plain_text',
+          'text': 'Add +1',
+          'emoji': true,
+        },
+        'submit': {
+          'type': 'plain_text',
+          'text': 'Submit',
+          'emoji': true,
+        },
+        'type': 'modal',
+        'close': {
+          'type': 'plain_text',
+          'text': 'Cancel',
+          'emoji': true,
+        },
+        'blocks': [
+          {
+            'type': 'input',
+            'element': {
+              'type': 'plain_text_input',
+              'action_id': 'plus1-name',
+            },
+            'label': {
+              'type': 'plain_text',
+              'text': 'Name',
+              'emoji': true,
+            },
+          },
+          {
+            'type': 'input',
+            'element': {
+              'type': 'email_text_input',
+              'action_id': 'plus1-email',
+            },
+            'label': {
+              'type': 'plain_text',
+              'text': 'Email',
+              'emoji': true,
+            },
+          },
+        ],
+      },
+    })
+  },
+
+  addOutsider: async (payload: any) => {
+    const { values: formValues } = payload.view.state
+    const [name, email] = Object.values(formValues)
+    console.log('name, email: ', name, email, payload.user.id)
+  },
+
   buildVoteBlocks: async () => {
     const event = await db.collection('events').findOne()
 

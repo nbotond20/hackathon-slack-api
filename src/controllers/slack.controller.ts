@@ -18,6 +18,13 @@ const SlackController = {
         if (payload.actions[0].action_id === 'vote-action') {
           await slackDomain.addVote(payload)
         }
+        if (payload.actions[0].action_id === 'plus-one-action') {
+          await slackDomain.showOutsiderModal(payload)
+        }
+      }
+
+      if (payload.type === 'view_submission') {
+        slackDomain.addOutsider(payload)
       }
 
       return res.sendStatus(200)
