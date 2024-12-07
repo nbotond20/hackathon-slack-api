@@ -24,6 +24,10 @@ const slackDomain = {
       lastUpdatedBy: instanceId,
     }
 
+    if (!dbObject.title || !dbObject.options || !dbObject.startTime || !dbObject.selectedChannels?.length) {
+      return
+    }
+
     const collection = db.collection('events')
 
     const res = await collection.insertOne(dbObject)
