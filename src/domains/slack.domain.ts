@@ -9,37 +9,36 @@ import { instanceId } from '../index'
 const slackDomain = {
   appHomeSubmitted: async (payload: SlackActionPayload) => {
     const { values: formValues } = payload.view.state
-    const [title, options, startTime] = Object.values(formValues)
+    const [title, options, startTime, channels] = Object.values(formValues)
 
     const dbObject = {
       title: title['event-title']['value'],
       options: options['event-options']['selected_options'],
       startTime: startTime['event-start-time']['selected_date_time'],
+      selectedChannels: channels['multi_users_select-action']['selected_channels'],
       lastUpdatedBy: instanceId,
     }
 
     const collection = db.collection('events')
-    const foundSettings = await collection.findOne()
-    const result = await collection.updateOne(
-      { _id: foundSettings?._id || new ObjectId() },
-      { $set: dbObject },
-      { upsert: true }
-    )
-    const object = foundSettings ? { ...foundSettings, ...dbObject } : { ...dbObject, _id: result.upsertedId }
-    await scheduleVoteEvent(object)
 
-    const event = await db.collection('events').findOne({ _id: object._id! })
+    await collection.insertOne(dbObject)
+
+    const previousEvents = await collection.find().sort({ _id: -1 }).toArray()
+
+    const lastEvent = previousEvents[0]
+
+    await scheduleVoteEvent(lastEvent)
 
     const titleBlock = {
       'type': 'header',
       'text': {
         type: 'plain_text',
-        text: `${event!.title}`,
+        text: `${lastEvent!.title}`,
         'emoji': true,
       },
     }
 
-    const blocks = event!.options
+    const blocks = lastEvent!.options
       .map(({ text, value }: any) => [
         {
           type: 'divider',
@@ -102,27 +101,74 @@ const slackDomain = {
       blocks: [titleBlock, ...blocks],
     })
 
-    await slackApi.views.update({
-      view_id: payload.view.id,
-      view: {
-        'type': 'home',
-        'blocks': [
-          ...payload.view.blocks,
-          {
-            'type': 'section',
-            'text': {
-              'type': 'mrkdwn',
-              'text': `*Saved*`,
-            },
-          },
-        ],
-      },
-    })
+    await slackDomain.appHomeOpened({ user: payload.user.id })
   },
 
   appHomeOpened: async (event: any) => {
     const collection = db.collection('events')
-    const foundSettings = await collection.findOne()
+    const previousEvents = await collection.find().sort({ _id: -1 }).toArray()
+
+    const lastEvent = previousEvents[0]
+
+    const eventBlocks = previousEvents
+      .map(event => [
+        {
+          'type': 'context',
+          'elements': [
+            {
+              'type': 'mrkdwn',
+              'text': `*${event.title}*`,
+            },
+          ],
+        },
+        {
+          'type': 'context',
+          'elements': [
+            {
+              'type': 'mrkdwn',
+              'text': event.options.map(option => option.text.text).join(', '),
+            },
+          ],
+        },
+        {
+          'type': 'context',
+          'elements': [
+            {
+              'type': 'mrkdwn',
+              'text': new Date(event.startTime * 1000).toLocaleString(),
+            },
+          ],
+        },
+        {
+          'type': 'context',
+          'elements': [
+            {
+              'type': 'mrkdwn',
+              'text': 'Channels: ' + event.selectedChannels.map((channel: any) => `<#${channel}>`).join(', '),
+            },
+          ],
+        },
+        {
+          'type': 'actions',
+          'elements': [
+            {
+              'type': 'button',
+              'text': {
+                'type': 'plain_text',
+                'text': 'Delete',
+                'emoji': true,
+              },
+              'style': 'danger',
+              'value': event._id.toString(),
+              'action_id': 'delete-event-action',
+            },
+          ],
+        },
+        {
+          'type': 'divider',
+        },
+      ])
+      .flat()
 
     await slackApi.views.publish({
       user_id: event.user,
@@ -130,11 +176,19 @@ const slackDomain = {
         'type': 'home',
         'blocks': [
           {
+            'type': 'header',
+            'text': {
+              'type': 'plain_text',
+              'text': 'Create new event',
+              'emoji': true,
+            },
+          },
+          {
             'type': 'input',
             'element': {
               'type': 'plain_text_input',
               'action_id': 'event-title',
-              'initial_value': foundSettings?.title,
+              'initial_value': lastEvent?.title,
             },
             'label': {
               'type': 'plain_text',
@@ -160,7 +214,7 @@ const slackDomain = {
                 'value': option.id,
               })),
               'action_id': 'event-options',
-              'initial_options': foundSettings?.options,
+              'initial_options': lastEvent?.options,
             },
             'label': {
               'type': 'plain_text',
@@ -173,11 +227,29 @@ const slackDomain = {
             'element': {
               'type': 'datetimepicker',
               'action_id': 'event-start-time',
-              initial_date_time: foundSettings?.startTime,
+              initial_date_time: lastEvent?.startTime,
             },
             'label': {
               'type': 'plain_text',
               'text': 'Vote Starts',
+              'emoji': true,
+            },
+          },
+          {
+            'type': 'input',
+            'element': {
+              'type': 'multi_channels_select',
+              'placeholder': {
+                'type': 'plain_text',
+                'text': 'Select channels',
+                'emoji': true,
+              },
+              'action_id': 'multi_users_select-action',
+              'initial_channels': lastEvent?.selectedChannels,
+            },
+            'label': {
+              'type': 'plain_text',
+              'text': 'Select channels',
               'emoji': true,
             },
           },
@@ -197,6 +269,18 @@ const slackDomain = {
               },
             ],
           },
+          {
+            'type': 'divider',
+          },
+          {
+            'type': 'header',
+            'text': {
+              'type': 'plain_text',
+              'text': 'Previous events',
+              'emoji': true,
+            },
+          },
+          ...eventBlocks,
         ],
       },
     })
@@ -288,6 +372,13 @@ const slackDomain = {
     const { values: formValues } = payload.view.state
     const [name, email] = Object.values(formValues)
     console.log('name, email: ', name, email, payload.user.id)
+  },
+
+  deleteEvent: async (payload: any) => {
+    const toDeleteId = payload.actions[0].value
+    const eventCollection = db.collection('events')
+    await eventCollection.deleteOne({ _id: new ObjectId(toDeleteId) })
+    await slackDomain.appHomeOpened({ user: payload.user.id })
   },
 }
 

@@ -21,6 +21,9 @@ const SlackController = {
         if (payload.actions[0].action_id === 'plus-one-action') {
           await slackDomain.showOutsiderModal(payload)
         }
+        if (payload.actions[0].action_id === 'delete-event-action') {
+          await slackDomain.deleteEvent(payload)
+        }
       }
 
       if (payload.type === 'view_submission') {
