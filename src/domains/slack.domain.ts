@@ -2,6 +2,9 @@ import { SlackActionPayload, SlackApiError, slackApiErrorSchema } from '@models'
 import { slackApi } from '@lib/slack/slack-api'
 import { DAY_OPTIONS } from 'src/constants/DAY_OPTIONS'
 import { db } from '@db'
+import { scheduleVoteEvent } from '@utils/cronjob-helpers'
+import { ObjectId } from 'mongodb'
+import { instanceId } from '../index'
 
 const slackDomain = {
   appHomeSubmitted: async (payload: SlackActionPayload) => {
@@ -12,11 +15,20 @@ const slackDomain = {
       title: title['event-title']['value'],
       options: options['event-options']['selected_options'],
       startTime: startTime['event-start-time']['selected_date_time'],
+      lastUpdatedBy: instanceId,
     }
 
     const collection = db.collection('events')
     const foundSettings = await collection.findOne()
-    await collection.updateOne({ _id: foundSettings?._id }, { $set: dbObject }, { upsert: true })
+    const result = await collection.updateOne(
+      { _id: foundSettings?._id || new ObjectId() },
+      { $set: dbObject },
+      { upsert: true }
+    )
+    console.log(foundSettings)
+    console.log(result)
+    const object = foundSettings ? { ...foundSettings, ...dbObject } : { ...dbObject, _id: result.upsertedId }
+    await scheduleVoteEvent(object)
 
     await slackApi.views.update({
       view_id: payload.view.id,
