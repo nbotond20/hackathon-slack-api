@@ -11,7 +11,6 @@ import { Response } from 'express'
 const slackDomain = {
   appHomeSubmitted: async (payload: SlackActionPayload) => {
     const { values: formValues } = payload.view.state
-    console.log('formValues: ', formValues)
     const [title, options, startTime, channels, recurring, limits] = Object.values(formValues)
 
     const dbObject = {
@@ -122,12 +121,28 @@ const slackDomain = {
       ])
       .flat()
 
-    lastEvent.selectedChannels.map(async channel => {
-      await slackApi.chat.postMessage({
+    const messageResponses = []
+
+    for (const channel of lastEvent.selectedChannels) {
+      const res = await slackApi.chat.postMessage({
         channel: channel,
         blocks: [...titleBlock, ...blocks],
       })
-    })
+      messageResponses.push(res)
+    }
+
+    // Update the event with the message ids
+    await collection.updateOne(
+      { _id: res.insertedId },
+      {
+        $set: {
+          messages: messageResponses.map(res => ({
+            ts: res.ts,
+            channel: res.channel,
+          })),
+        },
+      }
+    )
 
     await slackDomain.appHomeOpened({ user: payload.user.id })
   },
@@ -646,7 +661,12 @@ const slackDomain = {
           'emoji': true,
         },
         'type': 'modal',
-        private_metadata: payload.actions[0].value,
+        private_metadata: JSON.stringify({
+          eventId: payload.actions[0].value,
+          ts: payload.message.ts,
+          channelId: payload.channel.id,
+          //blocks: payload.message.blocks,
+        }),
         'close': {
           'type': 'plain_text',
           'text': 'Cancel',
@@ -749,31 +769,89 @@ const slackDomain = {
     const eventInfo = JSON.parse(payload.view.private_metadata)
 
     const eventsCollection = db.collection('events')
+    const eventIdObj = JSON.parse(eventInfo.eventId)
 
-    const event = await eventsCollection.findOne({ _id: new ObjectId(eventInfo.eventId) })
-
+    const event = await eventsCollection.findOne({ _id: new ObjectId(eventIdObj.eventId) })
+    if (!event) {
+      return res.send()
+    }
     const userProfile = await slackApi.users.info({
       user: payload.user.id,
     })
     const profilePic = userProfile.user?.profile?.image_48
 
     const hasVoted = (event.externalVotes || []).some(
-      (vote: any) => vote.userId === user._id && vote.value === eventInfo.option
+      (vote: any) => vote.userId === user._id && vote.value === eventIdObj.option
     )
-
+    let newExternalVotes = []
     if (!hasVoted) {
-      const newExternalVotes = [
+      newExternalVotes = [
         ...(event.externalVotes || []),
-        { userId: user._id, name: user.name, profilePic: profilePic, value: eventInfo.option },
+        { userId: user._id, name: user.name, profilePic: profilePic, value: eventIdObj.option },
       ]
 
       await eventsCollection.updateOne(
-        { _id: new ObjectId(eventInfo.eventId) },
+        { _id: new ObjectId(eventIdObj.eventId) },
         { $set: { externalVotes: newExternalVotes } }
       )
     } else {
       // TODO törölni ha már szavazott
     }
+
+    const message = await slackApi.conversations.history({
+      channel: eventInfo.channelId,
+      latest: eventInfo.ts,
+      limit: 1,
+      inclusive: true,
+    })
+
+    if (!message.ok) {
+      return res.send()
+    }
+    const blocks = message.messages?.[0].blocks
+    const voteBlockIndex = blocks.findIndex((block: any) => {
+      return block.elements?.[0].value === eventIdObj.option
+    })
+
+    const filteredVotes = event.votes?.filter((vote: any) => vote.value === eventIdObj.option) || []
+    const filtredExternalVotes = newExternalVotes?.filter((vote: any) => vote.value === eventIdObj.option) || []
+    const voteCount = (filteredVotes.length || 0) + (filtredExternalVotes.length || 0)
+
+    const limits = event.limits.map((limit: any) => parseInt(limit.value)).sort((a: number, b: number) => a - b)
+
+    const emoji = limits.length
+      ? limits.some(limit => limit === filteredVotes.length)
+        ? ':white_check_mark: '
+        : ':x: '
+      : undefined
+
+    const limittext = limits.length ? ` (${limits.join(', ')})` : ''
+    const newVoteBlocks = [
+      {
+        'type': 'plain_text',
+        'emoji': true,
+        'text': `${emoji}${voteCount} votes${limittext}`,
+      },
+      // ORder by vote timestamp
+      ...[...filteredVotes, ...filtredExternalVotes].map(vote => ({
+        'type': 'image',
+        'image_url': vote.profilePic,
+        'alt_text': vote.name,
+      })),
+    ]
+
+    blocks[voteBlockIndex + 1] = {
+      ...blocks[voteBlockIndex + 1],
+      elements: newVoteBlocks,
+    }
+
+    console.log('blocks', JSON.stringify(blocks, null, 2))
+
+    await slackApi.chat.update({
+      ts: eventInfo.ts,
+      channel: eventInfo.channelId,
+      blocks: blocks,
+    })
 
     return res.send()
   },
