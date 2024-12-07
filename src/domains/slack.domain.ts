@@ -34,8 +34,6 @@ const slackDomain = {
 
     const lastEvent = { ...dbObject, _id: res.insertedId }
 
-    await scheduleVoteEvent(lastEvent)
-
     const titleBlock = [
       {
         'type': 'header',
