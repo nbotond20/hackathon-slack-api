@@ -472,16 +472,29 @@ const slackDomain = {
           .sort((a: number, b: number) => a - b)
 
         const emoji = limits.length
-          ? limits.some(limit => limit === newVotes.length)
-            ? ':white_check_mark:'
-            : ':x:'
+          ? limits.some(limit => limit === filteredVotes.length)
+            ? ':white_check_mark: '
+            : ':x: '
           : undefined
 
+        /* const emojiBlock = {
+          'type': 'context',
+          'block_id': 'emoji',
+          'elements': [
+            {
+              'type': 'mrkdwn',
+              'text': `${emoji} ${
+                emoji === ':white_check_mark: ' ? 'Limit reached' : 'Limit not reached'
+              } (${limits.join(', ')})`,
+            },
+          ],
+        } */
+        const limittext = limits.length ? ` (${limits.join(', ')})` : ''
         const newVoteBlocks = [
           {
             'type': 'plain_text',
             'emoji': true,
-            'text': `${voteCount} votes`,
+            'text': `${emoji}${voteCount} votes${limittext}`,
           },
           ...filteredVotes.map(vote => ({
             'type': 'image',
@@ -493,28 +506,6 @@ const slackDomain = {
         blocks[voteBlockIndex + 1] = {
           ...blocks[voteBlockIndex + 1],
           elements: newVoteBlocks,
-        }
-
-        if (emoji) {
-          const emojiBlock = {
-            'type': 'context',
-            'block_id': 'emoji',
-            'elements': [
-              {
-                'type': 'mrkdwn',
-                'text': `${emoji} ${
-                  emoji === ':white_check_mark:' ? 'Limit reached' : 'Limit not reached'
-                } (${limits.join(', ')})`,
-              },
-            ],
-          }
-          if (blocks[blocks.length - 1].block_id === 'emoji') {
-            blocks[blocks.length - 1] = emojiBlock
-          } else {
-            blocks.push(emojiBlock)
-          }
-        } else {
-          blocks = blocks.filter((block: any) => block.block_id !== 'emoji')
         }
 
         await session.commitTransaction()
