@@ -386,7 +386,7 @@ const slackDomain = {
       try {
         // Get votes and check if it's already voted by the user
         const votes = foundSetting.votes || []
-        const hasVoted = votes.some((vote: any) => vote.userId === payload.user.id)
+        const hasVoted = votes.some((vote: any) => vote.userId === payload.user.id && vote.value === value)
 
         // If voted, remove the vote
         let newVotes = []
@@ -395,11 +395,12 @@ const slackDomain = {
           await eventCollection.updateOne({ _id: new ObjectId(eventId) }, { $set: { votes: newVotes } }, { session })
         } else {
           // If not voted, add the vote
-          newVotes = [...votes, { userId: payload.user.id, name, profilePic }]
+          newVotes = [...votes, { userId: payload.user.id, name, profilePic, value }]
           await eventCollection.updateOne({ _id: new ObjectId(eventId) }, { $set: { votes: newVotes } }, { session })
         }
 
-        const voteCount = newVotes.length
+        const filteredVotes = newVotes.filter((vote: any) => vote.value === value)
+        const voteCount = filteredVotes.length
 
         const newVoteBlocks = [
           {
@@ -407,7 +408,7 @@ const slackDomain = {
             'emoji': true,
             'text': `${voteCount} votes`,
           },
-          ...newVotes.map(vote => ({
+          ...filteredVotes.map(vote => ({
             'type': 'image',
             'image_url': vote.profilePic,
             'alt_text': vote.name,
@@ -433,7 +434,7 @@ const slackDomain = {
         blocks,
       })
     } catch (error) {
-      /*  console.log('Error adding reaction', error) */
+      console.log('Error adding reaction', error)
     }
   },
 
