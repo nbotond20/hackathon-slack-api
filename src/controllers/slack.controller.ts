@@ -26,6 +26,9 @@ const SlackController = {
         if (payload.actions[0].action_id === 'plus-one-add-new-user-action') {
           await slackDomain.updateOutsiderModal(payload)
         }
+        if (payload.actions[0].action_id === 'event-finish-voting-action') {
+          await slackDomain.finishVoting(payload)
+        }
       }
 
       if (payload.type === 'view_submission') {
@@ -38,6 +41,7 @@ const SlackController = {
 
       return res.sendStatus(200)
     } catch (error) {
+      console.log('error: ', error)
       next(error)
     }
   },
@@ -54,6 +58,7 @@ const SlackController = {
 
       return res.send(challenge).status(200)
     } catch (error) {
+      console.log('error: ', JSON.stringify(error, null, 2))
       next(error)
     }
   },

@@ -36,15 +36,32 @@ const slackDomain = {
 
     await scheduleVoteEvent(lastEvent)
 
-    const titleBlock = {
-      'type': 'header',
-      'block_id': lastEvent?._id.toString(),
-      'text': {
-        type: 'plain_text',
-        text: `${lastEvent!.title}`,
-        'emoji': true,
+    const titleBlock = [
+      {
+        'type': 'header',
+        'block_id': lastEvent?._id.toString(),
+        'text': {
+          type: 'plain_text',
+          text: `${lastEvent!.title}`,
+          'emoji': true,
+        },
       },
-    }
+      {
+        'type': 'actions',
+        'elements': [
+          {
+            'type': 'button',
+            'text': {
+              'type': 'plain_text',
+              'text': 'Finish Voting',
+              'emoji': true,
+            },
+            'value': lastEvent._id,
+            'action_id': 'event-finish-voting-action',
+          },
+        ],
+      },
+    ]
 
     const blocks = lastEvent!.options
       .map(({ text, value }: any) => [
@@ -110,7 +127,7 @@ const slackDomain = {
     lastEvent.selectedChannels.map(async channel => {
       await slackApi.chat.postMessage({
         channel: channel,
-        blocks: [titleBlock, ...blocks],
+        blocks: [...titleBlock, ...blocks],
       })
     })
 
@@ -763,6 +780,14 @@ const slackDomain = {
     const eventCollection = db.collection('events')
     await eventCollection.deleteOne({ _id: new ObjectId(toDeleteId) })
     await slackDomain.appHomeOpened({ user: payload.user.id })
+  },
+
+  finishVoting: async (payload: any) => {
+    await slackApi.chat.update({
+      ts: payload.message.ts,
+      channel: payload.channel.id,
+      blocks: payload.message.blocks.filter((block: any) => block.type !== 'actions'),
+    })
   },
 }
 
