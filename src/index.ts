@@ -19,9 +19,9 @@ const main = async () => {
 
   //await initializeJobs(); // Összes job újraütemezése
   await watchEvents()
-  await initializeScheduler()
+  //await initializeScheduler()
   setInterval(() => {
-    initializeScheduler()
+    //initializeScheduler()
   }, 10000)
   // watchSchedulerLock()
   // List the available routes
