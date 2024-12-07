@@ -8,4 +8,5 @@ export let db: Db
 export const initDB = async () => {
   await client.connect()
   db = client.db(DB_NAME)
+  db.collection('schedulerLock').createIndex({ id: 1 }, { unique: true })
 }

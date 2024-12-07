@@ -3,7 +3,7 @@ import errorHandler from '@middlewares/error-handler'
 import slackRoute from '@routes/slack.route'
 import { Boom } from '@hapi/boom'
 import { initDB } from '@db'
-import { watchTasks } from '@utils/cronjob-helpers'
+import { initializeScheduler, releaseLock, renewLock, watchSchedulerLock, watchEvents } from '@utils/cronjob-helpers'
 import { v4 as uuidv4 } from 'uuid'
 
 const BASE_URL = '/api/v1'
@@ -16,8 +16,13 @@ export const instanceId = `instance-${uuidv4()}`
 
 const main = async () => {
   await initDB()
+
   //await initializeJobs(); // Összes job újraütemezése
-  watchTasks() // Változásfigyelés elindítása
+  await watchEvents()
+  setInterval(() => {
+    initializeScheduler()
+  }, 30000)
+  // watchSchedulerLock()
   // List the available routes
   app.use(setBasePath('/'), slackRoute)
 
@@ -40,7 +45,10 @@ const main = async () => {
     console.log(`Server started on http://localhost:${parseInt(process.env.PORT || '5000')}`)
   })
 }
-
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM signal received.')
+  process.exit(0)
+})
 main().catch(err => {
   // eslint-disable-next-line no-console
   console.error(err)

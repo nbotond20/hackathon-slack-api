@@ -1,13 +1,12 @@
-import { SlackActionPayload, SlackApiError, slackApiErrorSchema } from '@models'
+import { SlackActionPayload } from '@models'
 import { slackApi } from '@lib/slack/slack-api'
 import { DAY_OPTIONS } from 'src/constants/DAY_OPTIONS'
 import { db } from '@db'
 import { scheduleVoteEvent } from '@utils/cronjob-helpers'
 import { ObjectId } from 'mongodb'
 import { instanceId } from '../index'
-import { deepFlatten } from '@utils/deepFlatten'
 import { client } from '../lib/db'
-import { NextFunction, Request, Response } from 'express'
+import { Response } from 'express'
 
 const slackDomain = {
   appHomeSubmitted: async (payload: SlackActionPayload) => {
