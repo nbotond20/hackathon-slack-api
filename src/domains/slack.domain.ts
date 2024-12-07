@@ -6,6 +6,7 @@ import { scheduleVoteEvent } from '@utils/cronjob-helpers'
 import { ObjectId } from 'mongodb'
 import { instanceId } from '../index'
 import { deepFlatten } from '@utils/deepFlatten'
+import { client } from '../lib/db'
 
 const slackDomain = {
   appHomeSubmitted: async (payload: SlackActionPayload) => {
@@ -93,7 +94,7 @@ const slackDomain = {
             {
               'type': 'plain_text',
               'emoji': true,
-              'text': '3 votes',
+              'text': '0 votes',
             },
           ],
         },
@@ -356,6 +357,10 @@ const slackDomain = {
 
   addVote: async (payload: any) => {
     try {
+      // Start transaction
+      const session = client.startSession()
+      session.startTransaction()
+
       const messageId = payload.message.ts
       const blocks = payload.message.blocks
       const headerBlock = blocks[0]
@@ -364,7 +369,6 @@ const slackDomain = {
       const { value } = payload.actions[0]
       const eventCollection = db.collection('events')
       const foundSetting = await eventCollection.findOne({ _id: new ObjectId(eventId) })
-      console.log('foundSetting: ', foundSetting)
       if (!foundSetting) {
         return
       }
@@ -372,7 +376,6 @@ const slackDomain = {
       const voteBlockIndex = blocks.findIndex((block: any) => {
         return block.elements?.[0].value === value
       })
-      const voteBlockContext = blocks[voteBlockIndex + 1]
 
       const userProfile = await slackApi.users.info({
         user: payload.user.id,
@@ -380,22 +383,49 @@ const slackDomain = {
       const profilePic = userProfile.user?.profile?.image_48
       const name = userProfile.user?.real_name
 
-      console.log('voteBlockContext: ', voteBlockContext)
+      try {
+        // Get votes and check if it's already voted by the user
+        const votes = foundSetting.votes || []
+        const hasVoted = votes.some((vote: any) => vote.userId === payload.user.id)
 
-      voteBlockContext.elements.push({
-        'type': 'image',
-        'image_url': profilePic,
-        'alt_text': name,
-      })
+        // If voted, remove the vote
+        let newVotes = []
+        if (hasVoted) {
+          newVotes = votes.filter((vote: any) => vote.userId !== payload.user.id)
+          await eventCollection.updateOne({ _id: new ObjectId(eventId) }, { $set: { votes: newVotes } }, { session })
+        } else {
+          // If not voted, add the vote
+          newVotes = [...votes, { userId: payload.user.id, name, profilePic }]
+          await eventCollection.updateOne({ _id: new ObjectId(eventId) }, { $set: { votes: newVotes } }, { session })
+        }
 
-      blocks[voteBlockIndex + 1] = voteBlockContext
+        const voteCount = newVotes.length
 
-      /* await slackApi.reactions.add({
-        name: 'thumbsup::skin-tone-6',
-        channel: payload.channel.id,
-        timestamp: messageId,
-      }) */
-      console.log(blocks)
+        const newVoteBlocks = [
+          {
+            'type': 'plain_text',
+            'emoji': true,
+            'text': `${voteCount} votes`,
+          },
+          ...newVotes.map(vote => ({
+            'type': 'image',
+            'image_url': vote.profilePic,
+            'alt_text': vote.name,
+          })),
+        ]
+
+        blocks[voteBlockIndex + 1] = {
+          ...blocks[voteBlockIndex + 1],
+          elements: newVoteBlocks,
+        }
+
+        await session.commitTransaction()
+        session.endSession()
+      } catch (error) {
+        await session.abortTransaction()
+        session.endSession()
+        throw error
+      }
 
       await slackApi.chat.update({
         ts: messageId,
@@ -403,7 +433,7 @@ const slackDomain = {
         blocks,
       })
     } catch (error) {
-      console.log('Error adding reaction', error)
+      /*  console.log('Error adding reaction', error) */
     }
   },
 
