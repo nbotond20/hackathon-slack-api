@@ -10,29 +10,28 @@ import { deepFlatten } from '@utils/deepFlatten'
 const slackDomain = {
   appHomeSubmitted: async (payload: SlackActionPayload) => {
     const { values: formValues } = payload.view.state
-    const [title, options, startTime, channels] = Object.values(formValues)
+    const [title, options, startTime, channels, recurring] = Object.values(formValues)
 
     const dbObject = {
       title: title['event-title']['value'],
       options: options['event-options']['selected_options'],
       startTime: startTime['event-start-time']['selected_date_time'],
       selectedChannels: channels['multi_users_select-action']['selected_channels'],
+      repeat: recurring['event-recurring']['selected_option']?.value,
       lastUpdatedBy: instanceId,
     }
 
     const collection = db.collection('events')
 
-    await collection.insertOne(dbObject)
+    const res = await collection.insertOne(dbObject)
 
-    const previousEvents = await collection.find().sort({ _id: -1 }).toArray()
-
-    const lastEvent = previousEvents[0]
+    const lastEvent = { ...dbObject, _id: res.insertedId }
 
     await scheduleVoteEvent(lastEvent)
 
     const titleBlock = {
       'type': 'header',
-      'block_id': event?._id.toString(),
+      'block_id': lastEvent?._id.toString(),
       'text': {
         type: 'plain_text',
         text: `${lastEvent!.title}`,
@@ -101,9 +100,11 @@ const slackDomain = {
       ])
       .flat()
 
-    await slackApi.chat.postMessage({
-      channel: 'C084N8KBJTA',
-      blocks: [titleBlock, ...blocks],
+    lastEvent.selectedChannels.map(async channel => {
+      await slackApi.chat.postMessage({
+        channel: channel,
+        blocks: [titleBlock, ...blocks],
+      })
     })
 
     await slackDomain.appHomeOpened({ user: payload.user.id })
@@ -150,6 +151,15 @@ const slackDomain = {
             {
               'type': 'mrkdwn',
               'text': 'Channels: ' + event.selectedChannels.map((channel: any) => `<#${channel}>`).join(', '),
+            },
+          ],
+        },
+        {
+          'type': 'context',
+          'elements': [
+            {
+              'type': 'mrkdwn',
+              'text': event.repeat ? 'Recurring: ' + event.repeat : 'Not recurring',
             },
           ],
         },
@@ -255,6 +265,59 @@ const slackDomain = {
             'label': {
               'type': 'plain_text',
               'text': 'Select channels',
+              'emoji': true,
+            },
+          },
+          {
+            'type': 'input',
+            'element': {
+              'type': 'static_select',
+              'placeholder': {
+                'type': 'plain_text',
+                'text': 'Not recurring',
+                'emoji': true,
+              },
+              'options': [
+                {
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Daily',
+                    'emoji': true,
+                  },
+                  'value': 'daily',
+                },
+                {
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Weekly',
+                    'emoji': true,
+                  },
+                  'value': 'weekly',
+                },
+                {
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Monthly',
+                    'emoji': true,
+                  },
+                  'value': 'monthly',
+                },
+              ],
+              'action_id': 'event-recurring',
+              'initial_option': lastEvent?.repeat
+                ? {
+                    'text': {
+                      'type': 'plain_text',
+                      'text': lastEvent?.repeat.charAt(0).toUpperCase() + lastEvent?.repeat.slice(1),
+                      'emoji': true,
+                    },
+                    'value': lastEvent?.repeat,
+                  }
+                : undefined,
+            },
+            'label': {
+              'type': 'plain_text',
+              'text': 'Recurring (optional)',
               'emoji': true,
             },
           },
