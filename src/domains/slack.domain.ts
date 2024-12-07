@@ -451,6 +451,7 @@ const slackDomain = {
       try {
         // Get votes and check if it's already voted by the user
         const votes = foundSetting.votes || []
+        const externalVotes = foundSetting.externalVotes || []
         const hasVoted = votes.some((vote: any) => vote.userId === payload.user.id && vote.value === value)
 
         // If voted, remove the vote
@@ -465,7 +466,8 @@ const slackDomain = {
         }
 
         const filteredVotes = newVotes.filter((vote: any) => vote.value === value)
-        const voteCount = filteredVotes.length
+        const filtredExternalVotes = externalVotes.filter((vote: any) => vote.value === value)
+        const voteCount = (filteredVotes.length || 0) + (filtredExternalVotes.length || 0)
 
         const limits = foundSetting.limits
           .map((limit: any) => parseInt(limit.value))
@@ -484,7 +486,8 @@ const slackDomain = {
             'emoji': true,
             'text': `${emoji}${voteCount} votes${limittext}`,
           },
-          ...filteredVotes.map(vote => ({
+          // ORder by vote timestamp
+          ...[...filteredVotes, ...filtredExternalVotes].map(vote => ({
             'type': 'image',
             'image_url': vote.profilePic,
             'alt_text': vote.name,
