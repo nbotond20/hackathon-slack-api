@@ -23,10 +23,17 @@ const SlackController = {
         if (payload.actions[0].action_id === 'delete-event-action') {
           await slackDomain.deleteEvent(payload)
         }
+        if (payload.actions[0].action_id === 'plus-one-add-new-user-action') {
+          await slackDomain.updateOutsiderModal(payload)
+        }
       }
 
       if (payload.type === 'view_submission') {
-        slackDomain.addOutsider(payload)
+        try {
+          return await slackDomain.addOutsider(payload, res)
+        } catch (error) {
+          console.log('error: ', error)
+        }
       }
 
       return res.sendStatus(200)

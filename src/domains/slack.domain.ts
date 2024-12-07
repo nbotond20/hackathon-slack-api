@@ -7,6 +7,7 @@ import { ObjectId } from 'mongodb'
 import { instanceId } from '../index'
 import { deepFlatten } from '@utils/deepFlatten'
 import { client } from '../lib/db'
+import { NextFunction, Request, Response } from 'express'
 
 const slackDomain = {
   appHomeSubmitted: async (payload: SlackActionPayload) => {
@@ -84,7 +85,7 @@ const slackDomain = {
                 'text': '+1',
               },
               'action_id': 'plus-one-action',
-              'value': value,
+              'value': JSON.stringify({ eventId: lastEvent._id, option: value }),
             },
           ],
         },
@@ -441,9 +442,148 @@ const slackDomain = {
   showOutsiderModal: async (payload: any) => {
     const { trigger_id } = payload
 
+    const usersCollection = db.collection('users')
+
+    const users = await usersCollection.find().toArray()
+
+    const userDropdown =
+      users.length === 0
+        ? []
+        : [
+            {
+              'type': 'header',
+              'text': {
+                'type': 'plain_text',
+                'text': 'Add existing user',
+                'emoji': true,
+              },
+            },
+            {
+              'type': 'input',
+              'element': {
+                'type': 'static_select',
+                'placeholder': {
+                  'type': 'plain_text',
+                  'text': 'Select user',
+                  'emoji': true,
+                },
+                'options': users.map(user => ({
+                  'text': {
+                    'type': 'plain_text',
+                    'text': `${user.name} (${user.email})`,
+                    'emoji': true,
+                  },
+                  'value': JSON.stringify(user),
+                })),
+                'action_id': 'event-recurring',
+              },
+              'label': {
+                'type': 'plain_text',
+                'text': 'Recurring (optional)',
+                'emoji': true,
+              },
+            },
+            {
+              'type': 'divider',
+            },
+            {
+              'type': 'rich_text',
+              'elements': [
+                {
+                  'type': 'rich_text_section',
+                  'elements': [
+                    {
+                      'type': 'text',
+                      'text': "Can't find the user you're looking for?",
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              'type': 'actions',
+              'elements': [
+                {
+                  'type': 'button',
+                  'text': {
+                    'type': 'plain_text',
+                    'text': 'Add new user instead',
+                    'emoji': true,
+                  },
+                  'action_id': 'plus-one-add-new-user-action',
+                },
+              ],
+            },
+          ]
+
+    const createNewUser =
+      users.length !== 0
+        ? []
+        : [
+            {
+              'type': 'header',
+              'text': {
+                'type': 'plain_text',
+                'text': 'Create new user',
+                'emoji': true,
+              },
+            },
+            {
+              'type': 'input',
+              'element': {
+                'type': 'plain_text_input',
+                'action_id': 'plus1-name',
+              },
+              'label': {
+                'type': 'plain_text',
+                'text': 'Name',
+                'emoji': true,
+              },
+            },
+            {
+              'type': 'input',
+              'element': {
+                'type': 'email_text_input',
+                'action_id': 'plus1-email',
+              },
+              'label': {
+                'type': 'plain_text',
+                'text': 'Email',
+                'emoji': true,
+              },
+            },
+          ]
+
     await slackApi.views.open({
       trigger_id,
       view: {
+        'title': {
+          'type': 'plain_text',
+          'text': 'Add +1',
+          'emoji': true,
+        },
+        'submit': {
+          'type': 'plain_text',
+          'text': 'Submit',
+          'emoji': true,
+        },
+        'type': 'modal',
+        private_metadata: payload.actions[0].value,
+        'close': {
+          'type': 'plain_text',
+          'text': 'Cancel',
+          'emoji': true,
+        },
+        'blocks': [...userDropdown, ...createNewUser],
+      },
+    })
+  },
+
+  updateOutsiderModal: async (payload: any) => {
+    await slackApi.views.update({
+      view_id: payload.view.id,
+      view: {
+        private_metadata: payload.view.private_metadata,
         'title': {
           'type': 'plain_text',
           'text': 'Add +1',
@@ -461,6 +601,14 @@ const slackDomain = {
           'emoji': true,
         },
         'blocks': [
+          {
+            'type': 'header',
+            'text': {
+              'type': 'plain_text',
+              'text': 'Create new user',
+              'emoji': true,
+            },
+          },
           {
             'type': 'input',
             'element': {
@@ -490,10 +638,66 @@ const slackDomain = {
     })
   },
 
-  addOutsider: async (payload: any) => {
+  addOutsider: async (payload: any, res: Response) => {
     const { values: formValues } = payload.view.state
-    const [name, email] = Object.values(formValues)
-    console.log('name, email: ', name, email, payload.user.id)
+
+    let name, email
+
+    if (Object.values(formValues).length === 2) {
+      const [nameObj, emailObj] = Object.values(formValues)
+      name = nameObj['plus1-name']['value']
+      email = emailObj['plus1-email']['value']
+    } else {
+      const [dropdownObj] = Object.values(formValues)
+      const { name: _name, email: _email } = JSON.parse(dropdownObj['event-recurring']['selected_option'].value)
+      name = _name
+      email = _email
+    }
+
+    const dbObject = {
+      name,
+      email,
+    }
+
+    const usersCollection = db.collection('users')
+
+    let user = await usersCollection.findOne({ email })
+
+    if (!user) {
+      const newUserId = await usersCollection.insertOne(dbObject)
+      user = { _id: newUserId.insertedId, ...dbObject }
+    }
+
+    const eventInfo = JSON.parse(payload.view.private_metadata)
+
+    const eventsCollection = db.collection('events')
+
+    const event = await eventsCollection.findOne({ _id: new ObjectId(eventInfo.eventId) })
+
+    const userProfile = await slackApi.users.info({
+      user: payload.user.id,
+    })
+    const profilePic = userProfile.user?.profile?.image_48
+
+    const hasVoted = (event.externalVotes || []).some(
+      (vote: any) => vote.userId === user._id && vote.value === eventInfo.option
+    )
+
+    if (!hasVoted) {
+      const newExternalVotes = [
+        ...(event.externalVotes || []),
+        { userId: user._id, name: user.name, profilePic: profilePic, value: eventInfo.option },
+      ]
+
+      await eventsCollection.updateOne(
+        { _id: new ObjectId(eventInfo.eventId) },
+        { $set: { externalVotes: newExternalVotes } }
+      )
+    } else {
+      // TODO törölni ha már szavazott
+    }
+
+    return res.send()
   },
 
   deleteEvent: async (payload: any) => {
