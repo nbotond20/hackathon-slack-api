@@ -3,7 +3,7 @@ import errorHandler from '@middlewares/error-handler'
 import slackRoute from '@routes/slack.route'
 import { Boom } from '@hapi/boom'
 import { initDB } from '@db'
-import { initializeScheduler, releaseLock, renewLock, watchSchedulerLock, watchEvents } from '@utils/cronjob-helpers'
+import { initializeScheduler, watchEvents } from '@utils/cronjob-helpers'
 import { v4 as uuidv4 } from 'uuid'
 
 const BASE_URL = '/api/v1'
@@ -17,13 +17,11 @@ export const instanceId = `instance-${uuidv4()}`
 const main = async () => {
   await initDB()
 
-  //await initializeJobs(); // Összes job újraütemezése
-  /* await watchEvents()
-  await initializeScheduler()
+  await watchEvents()
+ /* await initializeScheduler()
   setInterval(() => {
     initializeScheduler()
-  }, 10000) */
-  // watchSchedulerLock()
+  }, 10000)*/
   // List the available routes
   app.use(setBasePath('/'), slackRoute)
 
