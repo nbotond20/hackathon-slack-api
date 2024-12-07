@@ -5,6 +5,7 @@ import { db } from '@db'
 import { scheduleVoteEvent } from '@utils/cronjob-helpers'
 import { ObjectId } from 'mongodb'
 import { instanceId } from '../index'
+import { deepFlatten } from '@utils/deepFlatten'
 
 const slackDomain = {
   appHomeSubmitted: async (payload: SlackActionPayload) => {
@@ -31,6 +32,7 @@ const slackDomain = {
 
     const titleBlock = {
       'type': 'header',
+      'block_id': event?._id.toString(),
       'text': {
         type: 'plain_text',
         text: `${lastEvent!.title}`,
@@ -87,11 +89,14 @@ const slackDomain = {
           ],
         },
         {
-          'type': 'section',
-          'text': {
-            'type': 'mrkdwn',
-            'text': '<!subteam^S08432SPV2Q>',
-          },
+          'type': 'context',
+          'elements': [
+            {
+              'type': 'plain_text',
+              'emoji': true,
+              'text': '3 votes',
+            },
+          ],
         },
       ])
       .flat()
@@ -287,33 +292,56 @@ const slackDomain = {
   },
 
   addVote: async (payload: any) => {
-    const { value } = payload.actions[0]
-    const eventCollection = db.collection('events')
-    const foundSetting = await eventCollection.findOne()
-    if (!foundSetting) {
-      return
-    }
-
-    console.log('Adding vote to', value)
-
-    const messageId = payload.message.ts
-
     try {
-      await slackApi.reactions.add({
+      const messageId = payload.message.ts
+      const blocks = payload.message.blocks
+      const headerBlock = blocks[0]
+      const eventId = headerBlock.block_id
+
+      const { value } = payload.actions[0]
+      const eventCollection = db.collection('events')
+      const foundSetting = await eventCollection.findOne({ _id: new ObjectId(eventId) })
+      console.log('foundSetting: ', foundSetting)
+      if (!foundSetting) {
+        return
+      }
+
+      const voteBlockIndex = blocks.findIndex((block: any) => {
+        return block.elements?.[0].value === value
+      })
+      const voteBlockContext = blocks[voteBlockIndex + 1]
+
+      const userProfile = await slackApi.users.info({
+        user: payload.user.id,
+      })
+      const profilePic = userProfile.user?.profile?.image_48
+      const name = userProfile.user?.real_name
+
+      console.log('voteBlockContext: ', voteBlockContext)
+
+      voteBlockContext.elements.push({
+        'type': 'image',
+        'image_url': profilePic,
+        'alt_text': name,
+      })
+
+      blocks[voteBlockIndex + 1] = voteBlockContext
+
+      /* await slackApi.reactions.add({
         name: 'thumbsup::skin-tone-6',
         channel: payload.channel.id,
         timestamp: messageId,
+      }) */
+      console.log(blocks)
+
+      await slackApi.chat.update({
+        ts: messageId,
+        channel: payload.channel.id,
+        blocks,
       })
     } catch (error) {
       console.log('Error adding reaction', error)
     }
-    const userProfile = await slackApi.users.info({
-      user: payload.user.id,
-    })
-    const profilePic = userProfile.user?.profile?.image_48
-    console.log('Profile pic', profilePic)
-
-    console.log('Vote added')
   },
 
   showOutsiderModal: async (payload: any) => {

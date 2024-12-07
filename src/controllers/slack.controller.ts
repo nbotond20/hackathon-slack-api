@@ -9,7 +9,6 @@ const SlackController = {
   interactions: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const payload = JSON.parse(req.body.payload) as SlackActionPayload
-      console.log('im here', payload)
 
       if (payload.type === 'block_actions') {
         if (payload.actions[0].action_id === 'submit-action') {
