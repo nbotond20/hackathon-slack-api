@@ -868,7 +868,7 @@ const slackDomain = {
       ts: payload.message.ts,
       channel: payload.channel.id,
       blocks: payload.message.blocks.filter((block: any) => block.type !== 'actions'),
-    })
+    }) 
 
     const eventCollection = db.collection('events')
     const event = await eventCollection.findOne({ _id: new ObjectId(payload.actions[0].value) })
@@ -956,6 +956,11 @@ const slackDomain = {
         })),
       ],
     })
+
+    await eventCollection.updateOne(
+      { _id: new ObjectId(payload.actions[0].value) },
+      { $set: { votes: [], externalVotes: [] } }
+    )
   },
 }
 
