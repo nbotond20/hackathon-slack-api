@@ -54,7 +54,9 @@ const SlackController = {
     return res.sendStatus(200)
   },
   demo: async (req: Request, res: Response, _next: NextFunction) => {
-    await slackDomain.buildVoteBlocks()
+    const query = req.query
+    const id = query.id as string
+    /* await slackDomain.buildVoteBlocks(id) */
     return res.sendStatus(200)
   },
 }

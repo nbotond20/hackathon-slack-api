@@ -30,6 +30,80 @@ const slackDomain = {
     const object = foundSettings ? { ...foundSettings, ...dbObject } : { ...dbObject, _id: result.upsertedId }
     await scheduleVoteEvent(object)
 
+    const event = await db.collection('events').findOne({ _id: object._id! })
+
+    const titleBlock = {
+      'type': 'header',
+      'text': {
+        type: 'plain_text',
+        text: `${event!.title}`,
+        'emoji': true,
+      },
+    }
+
+    const blocks = event!.options
+      .map(({ text, value }: any) => [
+        {
+          type: 'divider',
+        },
+        {
+          'type': 'rich_text',
+          'elements': [
+            {
+              'type': 'rich_text_section',
+              'elements': [
+                {
+                  'type': 'text',
+                  'text': text.text,
+                  'style': {
+                    'bold': true,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          'type': 'actions',
+          'elements': [
+            {
+              'type': 'button',
+              'text': {
+                'type': 'plain_text',
+                'emoji': true,
+                'text': 'Vote',
+              },
+              'style': 'primary',
+              'value': value,
+              'action_id': 'vote-action',
+            },
+            {
+              'type': 'button',
+              'text': {
+                'type': 'plain_text',
+                'emoji': true,
+                'text': '+1',
+              },
+              'action_id': 'plus-one-action',
+              'value': value,
+            },
+          ],
+        },
+        {
+          'type': 'section',
+          'text': {
+            'type': 'mrkdwn',
+            'text': '<!subteam^S08432SPV2Q>',
+          },
+        },
+      ])
+      .flat()
+
+    await slackApi.chat.postMessage({
+      channel: 'C084N8KBJTA',
+      blocks: [titleBlock, ...blocks],
+    })
+
     await slackApi.views.update({
       view_id: payload.view.id,
       view: {
@@ -138,8 +212,26 @@ const slackDomain = {
       return
     }
 
-    const voteCollection = db.collection('votes')
-    console.log('foundSetting', foundSetting)
+    console.log('Adding vote to', value)
+
+    const messageId = payload.message.ts
+
+    try {
+      await slackApi.reactions.add({
+        name: 'thumbsup::skin-tone-6',
+        channel: payload.channel.id,
+        timestamp: messageId,
+      })
+    } catch (error) {
+      console.log('Error adding reaction', error)
+    }
+    const userProfile = await slackApi.users.info({
+      user: payload.user.id,
+    })
+    const profilePic = userProfile.user?.profile?.image_48
+    console.log('Profile pic', profilePic)
+
+    console.log('Vote added')
   },
 
   showOutsiderModal: async (payload: any) => {
@@ -198,82 +290,6 @@ const slackDomain = {
     const { values: formValues } = payload.view.state
     const [name, email] = Object.values(formValues)
     console.log('name, email: ', name, email, payload.user.id)
-  },
-
-  buildVoteBlocks: async () => {
-    const event = await db.collection('events').findOne()
-
-    const titleBlock = {
-      'type': 'header',
-      'text': {
-        type: 'plain_text',
-        text: `${event!.title}`,
-        'emoji': true,
-      },
-    }
-
-    const blocks = event!.options
-      .map(({ text, value }: any) => [
-        {
-          type: 'divider',
-        },
-        {
-          'type': 'rich_text',
-          'elements': [
-            {
-              'type': 'rich_text_section',
-              'elements': [
-                {
-                  'type': 'text',
-                  'text': text.text,
-                  'style': {
-                    'bold': true,
-                  },
-                },
-              ],
-            },
-          ],
-        },
-        {
-          'type': 'actions',
-          'elements': [
-            {
-              'type': 'button',
-              'text': {
-                'type': 'plain_text',
-                'emoji': true,
-                'text': 'Vote',
-              },
-              'style': 'primary',
-              'value': value,
-              'action_id': 'vote-action',
-            },
-            {
-              'type': 'button',
-              'text': {
-                'type': 'plain_text',
-                'emoji': true,
-                'text': '+1',
-              },
-              'action_id': 'plus-one-action',
-              'value': value,
-            },
-          ],
-        },
-        {
-          'type': 'section',
-          'text': {
-            'type': 'mrkdwn',
-            'text': '<!subteam^S08432SPV2Q>',
-          },
-        },
-      ])
-      .flat()
-
-    await slackApi.chat.postMessage({
-      channel: 'C084N8KBJTA',
-      blocks: [titleBlock, ...blocks],
-    })
   },
 }
 
